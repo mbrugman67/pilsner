@@ -42,6 +42,7 @@ public:
     bool doNTP();
     bool setArmClockTime();
 
+    const datetime_t getDateTime();
     const std::string timeString();
     const std::string dateString();
 

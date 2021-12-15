@@ -1,7 +1,8 @@
 #include "pilznet.h"
-#include "../project.h"
 
+#include "../project.h"
 #include "../af/Wifi.h"
+#include "../utils/stringFormat.h"
 
 static WiFiClass wifi;
 static WiFiUDP udp;
@@ -32,6 +33,7 @@ bool pilznet::connect(const std::string& ap, const std::string& pw)
     }
 
     int conResult = wifi.begin(ap.c_str(), pw.c_str());
+    printf("%s::Connection result %s\n", __FUNCTION__, this->status2text(conResult).c_str());
 
     if (conResult == WL_CONNECTED)
     {
@@ -44,9 +46,6 @@ bool pilznet::connect(const std::string& ap, const std::string& pw)
     uint8_t mac[6];
     WiFi.macAddress(mac);
     this->macAddr = mac2text(mac);
-
-    printf("Connection result: '%s'\n", status2text(conResult));
-    printf("Local IP address %s\n", wifi.localIP().ipToString().c_str());
 
     return (this->connected);
 }
@@ -96,17 +95,17 @@ bool pilznet::update(void)
 
 bool pilznet::doNTP(const std::string& tz)
 {
+    this->clockValid = false;
+
     if (this->connected)
     {
         wt.setTimezone(std::string(tz));
         wt.doNTP();
         sleep_ms(1000);
         this->clockValid = true;
-
-        return (true);
     }
     
-    return (false);
+    return (this->clockValid);
 }
 
 const std::string pilznet::getTimeString(void)
@@ -117,6 +116,7 @@ const std::string pilznet::getTimeString(void)
     }
     return (std::string("Time not set"));
 }
+
 const std::string pilznet::getDateString(void)
 {
     if (this->clockValid)
@@ -130,12 +130,13 @@ const std::string pilznet::getDateString(void)
 /****************************************************
  * Similar to Linux `iwlist wlan0 scanning`
  ****************************************************/
-const std::string pilznet::scan()
+const scan_data_t pilznet::scan()
 {
-    printf("******  SCANNING ******\n");
-    int netCount = wifi.scanNetworks();
+    scan_data_t ret;
 
-    if (netCount == -1)
+    ret.count = wifi.scanNetworks();
+
+    if (ret.count == -1)
     {
         printf("Unable to get a network link\n");
     }
@@ -143,26 +144,29 @@ const std::string pilznet::scan()
     {
         uint8_t bssid[16];
 
-        printf("%d networks found\n", netCount);
-
-        for (int ii = 0; ii < netCount; ++ii)
+        for (int ii = 0; ii < ret.count; ++ii)
         {
-            printf("Network %d: %s\n", ii, wifi.SSID(ii));
+            ap_data_t d;
 
             wifi.BSSID(ii, bssid);
-            printf("\tBSSID %s\n", mac2text(bssid));
+            d.bssid = mac2text(bssid);
 
-            printf("\tSignal: %d dbm\n", wifi.RSSI(ii));
-            printf("\tChannel: %d\n", (uint16_t)(wifi.channel(ii)));
-            printf("\tEncryption: %s\n", encryption2text(wifi.encryptionType(ii)));
+            d.ssid = wifi.SSID(ii);
+            d.strength = wifi.RSSI(ii);
+            d.channel = wifi.channel(ii);
+            d.encryption = encryption2text(wifi.encryptionType(ii));
+
+            ret.apData.push_back(d);
         }
     }
 
-    return ("Done");
+    return (ret);
 }
 
 
-const char* pilznet::encryption2text(int thisType) 
+
+
+const std::string pilznet::encryption2text(int thisType) 
 {
     switch (thisType) 
     {
@@ -178,7 +182,7 @@ const char* pilznet::encryption2text(int thisType)
     return ("WTF");
 }
 
-const char* pilznet::status2text(int status) 
+const std::string pilznet::status2text(int status) 
 {
     switch (status)
     {
@@ -197,13 +201,13 @@ const char* pilznet::status2text(int status)
     return ("unknown");
 }
 
-const char* pilznet::mac2text(uint8_t* mac)
+const std::string pilznet::mac2text(uint8_t* mac)
 {
-    static char ret[24] = {0};
+    std::string ret;
 
     if (mac)
     {
-        snprintf(ret, 23, "%02x:%02x:%02x:%02x:%02x:%02x",
+        ret = stringFormat("%02x:%02x:%02x:%02x:%02x:%02x",
             mac[5], mac[4], mac[3], mac[2], mac[1], mac[0]);
     }
 

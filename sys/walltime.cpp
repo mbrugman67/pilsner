@@ -17,6 +17,7 @@
 
 #include "pico/stdlib.h"
 #include "walltime.h"
+#include "../utils/stringFormat.h"
 
 #define LOCAL_PORT 2390
 
@@ -25,7 +26,8 @@
 #define SECONDS_PER_DAY         (uint32_t)86400
 
 // Load some timezones.  If yours isn't hear, add it now!
-walltime::zdata_t walltime::zones[] = {{"ADST9AKDT",    "US Alaska"},
+walltime::zdata_t walltime::zones[] = {
+                   {"ADST9AKDT",    "US Alaska"},
                    {"PST8PDT",      "US Pacific"},
                    {"PST8",         "US Pacific (no DST)"},
                    {"MST7MDT",      "US Mountain"},
@@ -168,34 +170,44 @@ bool walltime::doNTP()
 }
 
 /********************************************************
+ * getDateTime()
+ ********************************************************
+ * returns a datetime_t of now in curren ttimezone
+ *******************************************************/
+ const datetime_t walltime::getDateTime()
+ {
+    datetime_t now;
+
+    if (timeValid)
+    {
+        rtc_get_datetime(&now);
+    }
+
+    return (now);
+ }
+
+/********************************************************
  * timeString()
  ********************************************************
  * return a human-readable time string
  *******************************************************/
 const std::string walltime::timeString()
 {
+    std::string ret = std::string("<not set>");
+
     if (timeValid)
     {
-        char ret[40];
         datetime_t now;
 
         // get the time from the RTC module
-        bool ok = rtc_get_datetime(&now);
-        
-        if (!ok)
+        if (rtc_get_datetime(&now))
         {
-            snprintf(ret, 39, "Error on rct_get_datetime()");
-        }
-        else
-        {
-            snprintf(ret, 39, "%02d:%02d:%02d",
+            ret = stringFormat("%02d:%02d:%02d",
                     now.hour, now.min, now.sec);
         }
-
-        return (std::string(ret));
     }
 
-    return (std::string("<not set>"));
+    return (ret);
 }
 
 /********************************************************
@@ -205,24 +217,18 @@ const std::string walltime::timeString()
  *******************************************************/
 const std::string walltime::dateString()
 {
+    std::string ret = std::string("<not set>");
+
     if (timeValid)
     {
-        char ret[40];
         datetime_t now;
-        bool ok = rtc_get_datetime(&now);
         
-        if (!ok)
-        {
-            snprintf(ret, 39, "Error on rct_get_datetime()");
-        }
-        else
+        if (rtc_get_datetime(&now))
         {        
-            snprintf(ret, 39, "%d/%d/%d",
+            ret = stringFormat("%d/%d/%d",
                     now.month, now.day, now.year);
         }
-
-        return (std::string(ret));
     }
 
-    return (std::string("<not set>"));
+    return (ret);
 }

@@ -12,8 +12,12 @@ project(pilnser C CXX ASM)
 file(GLOB SOURCE_FILES
      "*.h"
      "*.cpp"
+     "./ipc/*.h"
+     "./ipc/*.cpp"
      "./sys/*.h"
      "./sys/*.cpp"
+     "./utils/*.h"
+     "./utils/*.cpp"
      "./pilznet/*.h"
      "./pilznet/*.cpp"
      "./alibs/*.h"
@@ -29,7 +33,7 @@ pico_sdk_init()
 add_executable(pilsner ${SOURCE_FILES})
 
 # Libraries
-target_link_libraries(pilsner pico_stdlib hardware_spi pico_time hardware_rtc)
+target_link_libraries(pilsner pico_stdlib hardware_spi pico_time pico_sync pico_multicore hardware_rtc)
  
 # Enable USB, UART output
 pico_enable_stdio_usb(pilsner 1)
