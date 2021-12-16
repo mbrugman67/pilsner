@@ -42,7 +42,7 @@ bool updateSharedData(uint16_t t, inter_core_t& d)
         if (t & US_CORE1_READY)         icData.core1Ready = d.core1Ready;
         if (t & US_WIFI_CONNECTED)      icData.clockReady = d.wifiConnected;
         if (t & US_CLOCK_READY)         icData.clockReady = d.clockReady;
-        if (t & US_CLOCK_TIME)          icData.clockTime = d.clockTime;
+        if (t & US_CLOCK_TIME)          std::memcpy(&icData.clockTime, &d.clockTime, sizeof(datetime_t));
         if (t & US_IP_ADDR)             icData.ipAddress = d.ipAddress;
         if (t & US_MAC_ADDR)            icData.macAddress = d.macAddress;
         if (t & US_SCAN_DATA)           icData.scanResult = d.scanResult;

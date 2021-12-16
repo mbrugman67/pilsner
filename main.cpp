@@ -19,9 +19,10 @@
 #include "core1.h"
 #include "./sys/ir.h"
 #include "./ipc/ipc.h"
+#include "./ipc/mlogger.h"
 
 static inter_core_t ipcCore0Data;
-static uint32_t ms = 0;
+static uint32_t msTick = 0;
 
 void heartBeatLED()
 {
@@ -70,7 +71,7 @@ bool ledIRTest()
                     if (!inProgress)
                     {
                         printf("%s::Asking for clock\n", __FUNCTION__);
-                        startTime = ms;
+                        startTime = msTick;
                         inProgress = true;
                         ipcCore0Data.cmd = IS_GET_CLOCK_TIME;
                         updateSharedData(US_NEW_CMD, ipcCore0Data);
@@ -82,7 +83,7 @@ bool ledIRTest()
                     if (!inProgress)
                     {
                         printf("%s::Asking for IP Address\n", __FUNCTION__);
-                        startTime = ms;
+                        startTime = msTick;
                         inProgress = true;
                         ipcCore0Data.cmd = IS_GET_IP;
                         updateSharedData(US_NEW_CMD, ipcCore0Data);
@@ -94,7 +95,7 @@ bool ledIRTest()
                     if (!inProgress)
                     {
                         printf("%s::Asking for MAC Address\n", __FUNCTION__);
-                        startTime = ms;
+                        startTime = msTick;
                         inProgress = true;
                         ipcCore0Data.cmd = IS_GET_MAC;
                         updateSharedData(US_NEW_CMD, ipcCore0Data);
@@ -106,7 +107,7 @@ bool ledIRTest()
                     if (!inProgress)
                     {
                         printf("%s::Asking for net scan\n", __FUNCTION__);
-                        startTime = ms;
+                        startTime = msTick;
                         inProgress = true;
                         ipcCore0Data.cmd = IS_DO_SCAN;
                         updateSharedData(US_NEW_CMD, ipcCore0Data);
@@ -140,7 +141,7 @@ bool ledIRTest()
     if (inProgress && ipcCore0Data.cmd == IS_NO_CMD)
     {
         inProgress = false;
-        uint32_t elapsed = ms - startTime;
+        uint32_t elapsed = msTick - startTime;
 
         if (ipcCore0Data.ack == IS_GET_IP)
         {
@@ -189,6 +190,7 @@ bool ledIRTest()
 int main()
 {
     stdio_init_all();
+    resetDebugBuffer();
 
     sleep_ms(8000);
     printf("\n****************starting****************\n");
@@ -198,8 +200,8 @@ int main()
         multicore_launch_core1(core1Main);
     }
 
-    ms = to_ms_since_boot(get_absolute_time());
-    uint32_t lastMs = ms;
+    msTick = to_ms_since_boot(get_absolute_time());
+    uint32_t lastMs = msTick;
     uint8_t tick = 0;
 
     updateSharedData(US_NONE, ipcCore0Data);
@@ -234,12 +236,12 @@ int main()
         }
 
         // tight part of service loop
-        while(ms == lastMs)
+        while(msTick == lastMs)
         {
-            ms = to_ms_since_boot(get_absolute_time());
+            msTick = to_ms_since_boot(get_absolute_time());
         }
 
-        lastMs = ms;
+        lastMs = msTick;
         
         ++tick;
         tick %= 4;
