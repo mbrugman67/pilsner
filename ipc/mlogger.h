@@ -5,7 +5,7 @@
 
 #include <string>
 
-void resetDebugBuffer();
+bool initDebugBuffer();
 size_t available();
 size_t consumed();
 bool isEmpty();

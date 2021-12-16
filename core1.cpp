@@ -6,6 +6,8 @@
 
 #include "./ipc/ipc.h"
 #include "./pilznet/pilznet.h"
+#include "./ipc/mlogger.h"
+#include "./utils/stringFormat.h"
 #include "creds.h"
 
 static pilznet pnet;
@@ -18,7 +20,7 @@ static inter_core_t ipcCore1Data;
  ********************************************************/
 void core1Main(void)
 {
-    printf("%s::Entering\n", __FUNCTION__);
+    dbgWrite(stringFormat("%s::Entering\n", __FUNCTION__));
 
     uint32_t ms = to_ms_since_boot(get_absolute_time());
     uint32_t lastMs = ms;
@@ -29,11 +31,11 @@ void core1Main(void)
     ipcCore1Data.wifiConnected = pnet.connect(WIFI_ACCESS_POINT_NAME, WIFI_PASSPHRASE);
     ipcCore1Data.clockReady = pnet.doNTP("CST6CDT");
 
-    printf("%s::Network and clock initialized\n", __FUNCTION__);
+    dbgWrite(stringFormat("%s::Network and clock initialized\n", __FUNCTION__));
 
     updateSharedData(US_CORE1_READY | US_WIFI_CONNECTED | US_CLOCK_READY, ipcCore1Data);
 
-    printf("%s::First shared data update done\n", __FUNCTION__);
+    dbgWrite(stringFormat("%s::First shared data update done\n", __FUNCTION__));
 
     while (true)
     { 
@@ -45,7 +47,7 @@ void core1Main(void)
             {
                 if (ipcCore1Data.cmd == IS_GET_CLOCK_TIME)
                 {
-                    printf("%s::Get clock time\n", __FUNCTION__);
+                    dbgWrite(stringFormat("%s::Get clock time\n", __FUNCTION__));
 
                     updates = US_NEW_CMD;
                     ipcCore1Data.cmd = IS_NO_CMD;
@@ -66,7 +68,7 @@ void core1Main(void)
             {
                 if (ipcCore1Data.cmd == IS_GET_IP)
                 {
-                    printf("%s::Get IP Address\n", __FUNCTION__);
+                    dbgWrite(stringFormat("%s::Get IP Address\n", __FUNCTION__));
 
                     updates = US_NEW_CMD;
                     ipcCore1Data.cmd = IS_NO_CMD;
@@ -86,7 +88,7 @@ void core1Main(void)
             {
                 if (ipcCore1Data.cmd == IS_GET_MAC)
                 {
-                    printf("%s::Get MAC address\n", __FUNCTION__);
+                    dbgWrite(stringFormat("%s::Get MAC address\n", __FUNCTION__));
 
                     updates = US_NEW_CMD;
                     ipcCore1Data.cmd = IS_NO_CMD;
@@ -106,7 +108,7 @@ void core1Main(void)
             {
                 if (ipcCore1Data.cmd == IS_DO_SCAN)
                 {
-                    printf("%s::Starting net scan\n", __FUNCTION__);
+                    dbgWrite(stringFormat("%s::Starting net scan\n", __FUNCTION__));
 
                     updates = US_NEW_CMD;
                     ipcCore1Data.cmd = IS_NO_CMD;

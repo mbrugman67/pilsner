@@ -20,6 +20,7 @@
 #include "./sys/ir.h"
 #include "./ipc/ipc.h"
 #include "./ipc/mlogger.h"
+#include "./utils/stringFormat.h"
 
 static inter_core_t ipcCore0Data;
 static uint32_t msTick = 0;
@@ -57,20 +58,20 @@ bool ledIRTest()
         irKey_t cmd = infra.getKeyCode();
         if (cmd != KEY_NULL)
         {
-            printf("\nKey %s\n", infra.getKeyName(cmd).c_str());
+            dbgWrite(stringFormat("\nKey %s\n", infra.getKeyName(cmd).c_str()));
 
             switch (cmd)
             {
                 case KEY_0:
                 {
-                    printf("%s::seconds since boot: %d\n", __FUNCTION__, to_ms_since_boot(get_absolute_time() / 1000));
+                    dbgWrite(stringFormat("%s::seconds since boot: %d\n", __FUNCTION__, to_ms_since_boot(get_absolute_time() / 1000)));
                 }  break;
 
                 case KEY_1:
                 {
                     if (!inProgress)
                     {
-                        printf("%s::Asking for clock\n", __FUNCTION__);
+                        dbgWrite(stringFormat("%s::Asking for clock\n", __FUNCTION__));
                         startTime = msTick;
                         inProgress = true;
                         ipcCore0Data.cmd = IS_GET_CLOCK_TIME;
@@ -82,7 +83,7 @@ bool ledIRTest()
                 {
                     if (!inProgress)
                     {
-                        printf("%s::Asking for IP Address\n", __FUNCTION__);
+                        dbgWrite(stringFormat("%s::Asking for IP Address\n", __FUNCTION__));
                         startTime = msTick;
                         inProgress = true;
                         ipcCore0Data.cmd = IS_GET_IP;
@@ -94,7 +95,7 @@ bool ledIRTest()
                 {
                     if (!inProgress)
                     {
-                        printf("%s::Asking for MAC Address\n", __FUNCTION__);
+                        dbgWrite(stringFormat("%s::Asking for MAC Address\n", __FUNCTION__));
                         startTime = msTick;
                         inProgress = true;
                         ipcCore0Data.cmd = IS_GET_MAC;
@@ -106,7 +107,7 @@ bool ledIRTest()
                 {
                     if (!inProgress)
                     {
-                        printf("%s::Asking for net scan\n", __FUNCTION__);
+                        dbgWrite(stringFormat("%s::Asking for net scan\n", __FUNCTION__));
                         startTime = msTick;
                         inProgress = true;
                         ipcCore0Data.cmd = IS_DO_SCAN;
@@ -134,7 +135,7 @@ bool ledIRTest()
         }
         else
         {
-            printf("%s::Unknown: 0x%02xn", __FUNCTION__, cmd);
+            dbgWrite(stringFormat("%s::Unknown: 0x%02xn", __FUNCTION__, cmd));
         }
     }
 
@@ -145,34 +146,34 @@ bool ledIRTest()
 
         if (ipcCore0Data.ack == IS_GET_IP)
         {
-            printf("%s::Got IP Addr %s in %dms\n", __FUNCTION__, ipcCore0Data.ipAddress.c_str(), elapsed);
+            dbgWrite(stringFormat("%s::Got IP Addr %s in %dms\n", __FUNCTION__, ipcCore0Data.ipAddress.c_str(), elapsed));
         }
         else if (ipcCore0Data.ack == IS_GET_MAC)
         {
-            printf("%s::Got MAC Addr %s in %dms\n", __FUNCTION__, ipcCore0Data.macAddress.c_str(), elapsed);
+            dbgWrite(stringFormat("%s::Got MAC Addr %s in %dms\n", __FUNCTION__, ipcCore0Data.macAddress.c_str(), elapsed));
         }
         else if (ipcCore0Data.ack == IS_GET_CLOCK_TIME)
         {
             datetime_t now = ipcCore0Data.clockTime;
 
-            printf("%s::Got clock time in %dms:\n", __FUNCTION__, elapsed);
-            printf("->%02d::%02d::%02d  %d/%d/%d\n",
+            dbgWrite(stringFormat("%s::Got clock time in %dms:\n", __FUNCTION__, elapsed));
+            dbgWrite(stringFormat("->%02d::%02d::%02d  %d/%d/%d\n",
                     now.hour, now.min, now.sec,
-                    now.month, now.day, now.year);
+                    now.month, now.day, now.year));
         }
         else if (ipcCore0Data.ack == IS_DO_SCAN)
         {
-            printf("%s::Scan done in %dms:\n", __FUNCTION__, elapsed);
+            dbgWrite(stringFormat("%s::Scan done in %dms:\n", __FUNCTION__, elapsed));
 
-            printf(" Found %d access points:\n", ipcCore0Data.scanResult.count);
+            dbgWrite(stringFormat(" Found %d access points:\n", ipcCore0Data.scanResult.count));
             std::vector<ap_data_t>::const_iterator cit = ipcCore0Data.scanResult.apData.begin();
             while (cit != ipcCore0Data.scanResult.apData.end())
             {
-                printf("  Name: %s\n", cit->ssid.c_str());
-                printf("    BSSID: %s\n", cit->bssid.c_str());
-                printf("    Strength: %ddbm\n", cit->strength);
-                printf("    Channel: %d\n", cit->channel);
-                printf("    Encryption: %s\n", cit->encryption.c_str());
+                dbgWrite(stringFormat("  Name: %s\n", cit->ssid.c_str()));
+                dbgWrite(stringFormat("    BSSID: %s\n", cit->bssid.c_str()));
+                dbgWrite(stringFormat("    Strength: %ddbm\n", cit->strength));
+                dbgWrite(stringFormat("    Channel: %d\n", cit->channel));
+                dbgWrite(stringFormat("    Encryption: %s\n", cit->encryption.c_str()));
                 ++cit;
             }
         }
@@ -190,10 +191,9 @@ bool ledIRTest()
 int main()
 {
     stdio_init_all();
-    resetDebugBuffer();
+    initDebugBuffer();
 
-    sleep_ms(8000);
-    printf("\n****************starting****************\n");
+    dbgWrite(stringFormat("\n****************starting****************\n"));
 
     if (initIPC())
     {

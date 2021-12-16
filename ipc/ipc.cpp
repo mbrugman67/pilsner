@@ -1,5 +1,7 @@
 #include "ipc.h"
 #include "pico/mutex.h"
+#include "../utils/stringFormat.h"
+#include "mlogger.h"
 
 
 static inter_core_t icData;
@@ -76,24 +78,24 @@ const std::string cmd2text(inter_core_cmd_t c)
 
 void dumpStruct(const inter_core_t& d, const std::string w)
 {
-    printf("%s::%s\n", __FUNCTION__, w.c_str());
-    printf("  core1Ready: %s\n", d.core1Ready ? "true" : "false");
-    printf("  wifiConnected: %s\n", d.wifiConnected ? "true" : "false");
-    printf("  clockReady: %s\n", d.clockReady ? "true" : "false");
-    printf("  ipAddress: %s\n", d.ipAddress.c_str());
-    printf("  macAddress: %s\n", d.macAddress.c_str());
-    printf("  cmd: %s\n", cmd2text(d.cmd).c_str());
-    printf("  ack: %s\n", cmd2text(d.ack).c_str());
+    dbgWrite(stringFormat("%s::%s\n", __FUNCTION__, w.c_str()));
+    dbgWrite(stringFormat("  core1Ready: %s\n", d.core1Ready ? "true" : "false"));
+    dbgWrite(stringFormat("  wifiConnected: %s\n", d.wifiConnected ? "true" : "false"));
+    dbgWrite(stringFormat("  clockReady: %s\n", d.clockReady ? "true" : "false"));
+    dbgWrite(stringFormat("  ipAddress: %s\n", d.ipAddress.c_str()));
+    dbgWrite(stringFormat("  macAddress: %s\n", d.macAddress.c_str()));
+    dbgWrite(stringFormat("  cmd: %s\n", cmd2text(d.cmd).c_str()));
+    dbgWrite(stringFormat("  ack: %s\n", cmd2text(d.ack).c_str()));
 }
 
 
 void diffStruct(const inter_core_t& a, const inter_core_t& b, int core)
 {
-    if (a.core1Ready != b.core1Ready)   printf("%d-->core1Ready from %s to %s\n", core, a.core1Ready? "true" : "false", b.core1Ready? "true" : "false");
-    if (a.wifiConnected != b.wifiConnected)   printf("%d-->wifiConnected from %s to %s\n", core, a.wifiConnected? "true" : "false", b.wifiConnected? "true" : "false");
-    if (a.clockReady != b.clockReady)   printf("%d-->clockReady from %s to %s\n", core, a.clockReady? "true" : "false", b.clockReady? "true" : "false");   
-    if (a.ipAddress != b.ipAddress)     printf("%d-->ip addr from %s to %s\n", core, a.ipAddress.c_str(), b.ipAddress.c_str());
-    if (a.macAddress != b.macAddress)   printf("%d-->mac addr from %s to %s\n", core, a.macAddress.c_str(), b.macAddress.c_str());
-    if (a.cmd != b.cmd) printf("%d-->cmd from %s to %s\n", core, cmd2text(a.cmd).c_str(), cmd2text(b.cmd).c_str());
-    if (a.ack != b.ack) printf("%d-->ack from %s to %s\n", core, cmd2text(a.ack).c_str(), cmd2text(b.ack).c_str());
+    if (a.core1Ready != b.core1Ready)   dbgWrite(stringFormat("%d-->core1Ready from %s to %s\n", core, a.core1Ready? "true" : "false", b.core1Ready? "true" : "false"));
+    if (a.wifiConnected != b.wifiConnected)   dbgWrite(stringFormat("%d-->wifiConnected from %s to %s\n", core, a.wifiConnected? "true" : "false", b.wifiConnected? "true" : "false"));
+    if (a.clockReady != b.clockReady)   dbgWrite(stringFormat("%d-->clockReady from %s to %s\n", core, a.clockReady? "true" : "false", b.clockReady? "true" : "false"));
+    if (a.ipAddress != b.ipAddress)     dbgWrite(stringFormat("%d-->ip addr from %s to %s\n", core, a.ipAddress.c_str(), b.ipAddress.c_str()));
+    if (a.macAddress != b.macAddress)   dbgWrite(stringFormat("%d-->mac addr from %s to %s\n", core, a.macAddress.c_str(), b.macAddress.c_str()));
+    if (a.cmd != b.cmd) dbgWrite(stringFormat("%d-->cmd from %s to %s\n", core, cmd2text(a.cmd).c_str(), cmd2text(b.cmd).c_str()));
+    if (a.ack != b.ack) dbgWrite(stringFormat("%d-->ack from %s to %s\n", core, cmd2text(a.ack).c_str(), cmd2text(b.ack).c_str()));
 }

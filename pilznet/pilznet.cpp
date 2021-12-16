@@ -3,6 +3,7 @@
 #include "../project.h"
 #include "../af/Wifi.h"
 #include "../utils/stringFormat.h"
+#include "../ipc/mlogger.h"
 
 static WiFiClass wifi;
 static WiFiUDP udp;
@@ -26,14 +27,14 @@ bool pilznet::connect(const std::string& ap, const std::string& pw)
     {
         if ((++timeout) > 10)
         {
-            printf("Timed out waiting for module to wake up\n");
+            dbgWrite(stringFormat("Timed out waiting for module to wake up\n"));
             return (false);
         }
         sleep_ms(1000);
     }
 
     int conResult = wifi.begin(ap.c_str(), pw.c_str());
-    printf("%s::Connection result %s\n", __FUNCTION__, this->status2text(conResult).c_str());
+    dbgWrite(stringFormat("%s::Connection result %s\n", __FUNCTION__, this->status2text(conResult).c_str()));
 
     if (conResult == WL_CONNECTED)
     {
@@ -61,7 +62,7 @@ bool pilznet::update(void)
         char* buff = new char[bytesAvailable];
         if (!buff)
         {
-            printf("Unable to allocate %d bytes for new UDP packet\n", bytesAvailable);
+            dbgWrite(stringFormat("Unable to allocate %d bytes for new UDP packet\n", bytesAvailable));
             return (retVal);
         }
 
@@ -69,20 +70,20 @@ bool pilznet::update(void)
         int remotePort = udp.remotePort();
 
         int bytesRead = udp.read(buff, bytesAvailable);
-        printf("Read %d/%d from remote %s/%d\n", 
+        dbgWrite(stringFormat("Read %d/%d from remote %s/%d\n", 
             bytesRead, bytesAvailable,
-            remoteIP.ipToString().c_str(), remotePort);
+            remoteIP.ipToString().c_str(), remotePort));
 
         udp.beginPacket(remoteIP, remotePort);
         udp.write((uint8_t*)buff, bytesRead);
         
         if (udp.endPacket())
         {
-            printf("Returned packet\n");
+            dbgWrite(stringFormat("Returned packet\n"));
         }
         else
         {
-            printf("Error returning packet\n");
+            dbgWrite(stringFormat("Error returning packet\n"));
         }
 
         retVal = true;
@@ -138,7 +139,7 @@ const scan_data_t pilznet::scan()
 
     if (ret.count == -1)
     {
-        printf("Unable to get a network link\n");
+        dbgWrite(stringFormat("Unable to get a network link\n"));
     }
     else
     {
