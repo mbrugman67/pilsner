@@ -3,9 +3,9 @@
 
 #include "../utils/stringFormat.h"
 
-#define DEBUG_BUFFER_SIZE   2048
+#define DEBUG_BUFFER_SIZE   512
 
-static char* buff = NULL;
+static char buff[DEBUG_BUFFER_SIZE];
 static size_t head = 0;
 static size_t tail = 0;
 static size_t used = 0;
@@ -20,6 +20,7 @@ static size_t capacity = DEBUG_BUFFER_SIZE;
  ********************************************/
 bool initDebugBuffer()
 {
+    /*
     if (buff)
     {
         delete[] buff;
@@ -30,6 +31,7 @@ bool initDebugBuffer()
     {
         return (false);
     }
+    */
 
     std::memset(buff, 0, DEBUG_BUFFER_SIZE);
     head = 0;

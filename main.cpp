@@ -21,6 +21,7 @@
 #include "./ipc/ipc.h"
 #include "./ipc/mlogger.h"
 #include "./utils/stringFormat.h"
+#include "./ds1820/ds1820.h"
 
 static inter_core_t ipcCore0Data;
 static uint32_t msTick = 0;
@@ -193,6 +194,9 @@ int main()
     stdio_init_all();
     initDebugBuffer();
 
+    ds1820 probe;
+    uint32_t sm = probe.init((PIO)pio0, 15);
+
     dbgWrite(stringFormat("\n****************starting****************\n"));
 
     if (initIPC())
@@ -232,6 +236,17 @@ int main()
             
             case 3:
             {
+                    static uint16_t count = 0;
+
+                    if (!(count % 500))
+                    {
+                        uint32_t startTempTime = to_ms_since_boot(get_absolute_time());
+                        float temp = probe.getTemperature();
+                        uint32_t total = to_ms_since_boot(get_absolute_time()) - startTempTime;
+
+                        printf("Temperature %0.1f degrees F in %dms\n", temp, total);
+                    }
+                    ++count;
             }  break;
         }
 
