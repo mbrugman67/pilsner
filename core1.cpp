@@ -8,9 +8,11 @@
 #include "./pilznet/pilznet.h"
 #include "./ipc/mlogger.h"
 #include "./utils/stringFormat.h"
+#include "./ds1820/ds1820.h"
 #include "creds.h"
 
 static pilznet pnet;
+static ds1820 probe;
 static inter_core_t ipcCore1Data;
 
 /*********************************************************
@@ -32,6 +34,9 @@ void core1Main(void)
     ipcCore1Data.clockReady = pnet.doNTP("CST6CDT");
 
     dbgWrite(stringFormat("%s::Network and clock initialized\n", __FUNCTION__));
+    
+    // init temperature sensor
+    uint32_t sm = probe.init((PIO)pio0, 15);
 
     updateSharedData(US_CORE1_READY | US_WIFI_CONNECTED | US_CLOCK_READY, ipcCore1Data);
 
@@ -64,7 +69,7 @@ void core1Main(void)
                 }
             }  break;
             
-            case 2:
+            case 1:
             {
                 if (ipcCore1Data.cmd == IS_GET_IP)
                 {
@@ -84,7 +89,7 @@ void core1Main(void)
                 }
             }  break;
             
-            case 4:
+            case 2:
             {
                 if (ipcCore1Data.cmd == IS_GET_MAC)
                 {
@@ -104,7 +109,7 @@ void core1Main(void)
                 }
             }  break;
             
-            case 6:
+            case 3:
             {
                 if (ipcCore1Data.cmd == IS_DO_SCAN)
                 {
@@ -124,14 +129,25 @@ void core1Main(void)
                 }
             }  break;
             
-            case 8:
+            case 4:
+            {
+                static uint16_t count = 0;
+
+                if (!(count % 500))
+                {
+                    ipcCore1Data.temperatue = probe.getTemperature();
+                    ++ipcCore1Data.tempCount;
+
+                    updateSharedData(US_NEW_TMP_DATA, ipcCore1Data);
+                }
+                ++count;
+            }  break;
+
+            case 5:
             {
                 pnet.update();
                         
-                //inter_core_t t;
-                //copyIPC(ipcCore1Data, t);
                 updateSharedData(IS_NO_CMD, ipcCore1Data);
-                //diffStruct(t, ipcCore1Data, 1);
             }  break;
         }
 
@@ -146,6 +162,6 @@ void core1Main(void)
         lastMs = ms;
         
         ++tick;
-        tick %= 10;
+        tick %= 6;
     }
 }

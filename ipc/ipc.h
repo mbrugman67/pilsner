@@ -27,14 +27,17 @@ enum inter_core_cmd_t
 #define US_IP_ADDR          (uint16_t)0x0010        // update IP address
 #define US_MAC_ADDR         (uint16_t)0x0020        // update MAC address
 #define US_SCAN_DATA        (uint16_t)0x0040        // new scan data
-#define US_NEW_CMD          (uint16_t)0x0080        // new command
-#define US_ACK_CMD          (uint16_t)0x0100        // new ack
+#define US_NEW_TMP_DATA     (uint16_t)0x0080        // new temperature data
+#define US_NEW_CMD          (uint16_t)0x0100        // new command
+#define US_ACK_CMD          (uint16_t)0x0200        // new ack
 
 struct inter_core_t
 {
     bool                core1Ready;     // Core 1 is running
     bool                wifiConnected;  // wifi is connected
     bool                clockReady;     // clock has been set
+    uint32_t            tempCount;      // incremented each time a temp is written
+    float               temperatue;     // current probe reading
     datetime_t          clockTime;      // current data/time data
     std::string         ipAddress;      // current IP address
     std::string         macAddress;     // current MAC address

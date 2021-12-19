@@ -18,6 +18,8 @@
 
 #include "ds1820.pio.h"
 
+#define BAD_TEMPERATURE_VALUE   -2000
+
 class ds1820
 {
 public:

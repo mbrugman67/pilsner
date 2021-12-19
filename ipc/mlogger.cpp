@@ -2,14 +2,17 @@
 #include <cstring>
 
 #include "../utils/stringFormat.h"
+#include "pico/multicore.h"
 
-#define DEBUG_BUFFER_SIZE   512
+#define DEBUG_BUFFER_SIZE   2048
 
-static char buff[DEBUG_BUFFER_SIZE];
+static char* buff = NULL;
 static size_t head = 0;
 static size_t tail = 0;
 static size_t used = 0;
 static size_t capacity = DEBUG_BUFFER_SIZE;
+
+static mutex_t dbgMtx;
 
 /*********************************************
  * initDebugBuffer()
@@ -20,7 +23,6 @@ static size_t capacity = DEBUG_BUFFER_SIZE;
  ********************************************/
 bool initDebugBuffer()
 {
-    /*
     if (buff)
     {
         delete[] buff;
@@ -31,13 +33,14 @@ bool initDebugBuffer()
     {
         return (false);
     }
-    */
 
     std::memset(buff, 0, DEBUG_BUFFER_SIZE);
     head = 0;
     tail = 0;
     used = 0;
     capacity = DEBUG_BUFFER_SIZE;
+
+    mutex_init(&dbgMtx);
 
     return (true);
 }
@@ -93,6 +96,11 @@ bool isFull()
  ********************************************/
 size_t addChar(char c)
 {
+    if (!buff)
+    {
+        return (0);
+    }
+
     // Never ending buffer... if it's full, just
     // increment the tail by one to make room.
     // this the newest byte will overwrite
@@ -104,9 +112,11 @@ size_t addChar(char c)
     }
 
     // add and increment
+    mutex_enter_blocking(&dbgMtx);
     buff[head] = c;
     ++head;
-    head %= DEBUG_BUFFER_SIZE;    
+    head %= DEBUG_BUFFER_SIZE;  
+    mutex_exit(&dbgMtx);  
 
     return (1);
 }
@@ -165,13 +175,20 @@ size_t dbgHexWrite(int i)
 bool dbgPop(char& c)
 {
     bool ret = false;
+ 
+    if (!buff)
+    {
+        return (ret);
+    }    
 
     if (head != tail)
     {
+
+        mutex_enter_blocking(&dbgMtx);
         c = buff[tail];
-        
         ++tail;
         tail %= DEBUG_BUFFER_SIZE;
+        mutex_exit(&dbgMtx);
 
         ret = true;
     }

@@ -12,6 +12,8 @@ void copyIPC(const inter_core_t src, inter_core_t& dst)
     dst.core1Ready      = src.core1Ready;
     dst.wifiConnected   = src.wifiConnected;
     dst.clockReady      = src.clockReady;
+    dst.temperatue      = src.temperatue;
+    dst.tempCount       = src.tempCount;
     dst.clockTime       = src.clockTime;
     dst.ipAddress       = src.ipAddress;
     dst.macAddress      = src.macAddress;
@@ -25,6 +27,8 @@ bool initIPC(void)
     icData.core1Ready = false;
     icData.wifiConnected = false;
     icData.clockReady = false;
+    icData.temperatue = 0.0;
+    icData.tempCount = 0;
     icData.cmd = IS_NO_CMD;
     icData.ack = IS_NO_CMD;
 
@@ -50,9 +54,13 @@ bool updateSharedData(uint16_t t, inter_core_t& d)
         if (t & US_SCAN_DATA)           icData.scanResult = d.scanResult;
         if (t & US_NEW_CMD)             icData.cmd = d.cmd;
         if (t & US_ACK_CMD)             icData.ack = d.ack;
+        if (t & US_NEW_TMP_DATA)
+        {
+            icData.temperatue = d.temperatue;
+            icData.tempCount = d.tempCount;
+        }
 
         copyIPC(icData, d);
-
         ret = true;
 
         mutex_exit(&mtx);
@@ -84,6 +92,8 @@ void dumpStruct(const inter_core_t& d, const std::string w)
     dbgWrite(stringFormat("  clockReady: %s\n", d.clockReady ? "true" : "false"));
     dbgWrite(stringFormat("  ipAddress: %s\n", d.ipAddress.c_str()));
     dbgWrite(stringFormat("  macAddress: %s\n", d.macAddress.c_str()));
+    dbgWrite(stringFormat("  temperature: %2.1\n", d.temperatue));
+    dbgWrite(stringFormat("  temperature count %d\n", d.tempCount));
     dbgWrite(stringFormat("  cmd: %s\n", cmd2text(d.cmd).c_str()));
     dbgWrite(stringFormat("  ack: %s\n", cmd2text(d.ack).c_str()));
 }

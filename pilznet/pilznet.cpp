@@ -68,22 +68,22 @@ bool pilznet::update(void)
 
         IPAddress remoteIP = udp.remoteIP();
         int remotePort = udp.remotePort();
+        udp.read(buff, bytesAvailable);
 
-        int bytesRead = udp.read(buff, bytesAvailable);
-        dbgWrite(stringFormat("Read %d/%d from remote %s/%d\n", 
-            bytesRead, bytesAvailable,
-            remoteIP.ipToString().c_str(), remotePort));
+        if (buff[0] == 'x')
+        {
+            //std::string dbgBuffer = dbgPop();
+            char t[2049];
+            memset(t, 0, 2049);
+            size_t bRead = 2048;
+            dbgPop(t, bRead);
 
-        udp.beginPacket(remoteIP, remotePort);
-        udp.write((uint8_t*)buff, bytesRead);
-        
-        if (udp.endPacket())
-        {
-            dbgWrite(stringFormat("Returned packet\n"));
-        }
-        else
-        {
-            dbgWrite(stringFormat("Error returning packet\n"));
+            if (bRead)
+            {
+                udp.beginPacket(remoteIP, remotePort);
+                udp.write((uint8_t*)t, bRead);
+                udp.endPacket();
+            }
         }
 
         retVal = true;

@@ -13,8 +13,8 @@
 struct ap_data_t
 {
     std::string bssid;
-    uint16_t    strength;   // signal strength in dbm
-    uint16_t    channel;    // channel
+    uint32_t    strength;   // signal strength in dbm
+    uint8_t    channel;    // channel
     std::string encryption; // encryption type 
     std::string ssid;       // broadcast ssid of ap
 };

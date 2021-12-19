@@ -88,20 +88,20 @@ float ds1820::getTemperature() const
     // bad - return a stupid value
     if (crc != 0)
     {
-        return (-2000);
+        return (BAD_TEMPERATURE_VALUE);
     }
 
     // convert to floating point temperature
     int t1 = data[0];
     int t2 = data[1];
     int16_t temp1 = (t2 << 8 | t1);
-    float temp = (float)temp1 / 16;
+    float currentTemperature = (float)temp1 / 16;
 
     // convert from F to C
-    temp *= 1.8;
-    temp += 32.0;
+    currentTemperature *= 1.8;
+    currentTemperature += 32.0;
 
-    return temp;
+    return (currentTemperature);
 }
 
 /**************************************************
@@ -152,7 +152,18 @@ void ds1820::readBytes(std::vector<uint8_t>& data, size_t len) const
     } 
 }
 
-
+/**************************************************
+ * crc8()
+ **************************************************
+ * Pull bytes from the PIO state machine
+ * 
+ * Parameters:
+ *  data - a std::vector of uint8_t with data to 
+ *         check
+ * 
+ * Returns:
+ *  checksum
+ *************************************************/
 uint8_t ds1820::crc8(const std::vector<uint8_t>& data) const
 {
     uint8_t j;
