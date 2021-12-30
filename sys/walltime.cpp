@@ -170,41 +170,21 @@ bool walltime::doNTP()
 }
 
 /********************************************************
- * getDateTime()
- ********************************************************
- * returns a datetime_t of now in curren ttimezone
- *******************************************************/
- const datetime_t walltime::getDateTime()
- {
-    datetime_t now;
-
-    if (timeValid)
-    {
-        rtc_get_datetime(&now);
-    }
-
-    return (now);
- }
-
-/********************************************************
  * timeString()
  ********************************************************
  * return a human-readable time string
  *******************************************************/
-const std::string walltime::timeString()
+std::string walltime::timeString()
 {
     std::string ret = std::string("<not set>");
 
-    if (timeValid)
-    {
-        datetime_t now;
+    datetime_t now;
 
-        // get the time from the RTC module
-        if (rtc_get_datetime(&now))
-        {
-            ret = stringFormat("%02d:%02d:%02d",
-                    now.hour, now.min, now.sec);
-        }
+    // get the time from the RTC module
+    if (rtc_get_datetime(&now))
+    {
+        ret = stringFormat("%02d:%02d:%02d",
+                now.hour, now.min, now.sec);
     }
 
     return (ret);
@@ -215,19 +195,38 @@ const std::string walltime::timeString()
  ********************************************************
  * return a human-readable date string
  *******************************************************/
-const std::string walltime::dateString()
+std::string walltime::dateString()
 {
     std::string ret = std::string("<not set>");
 
-    if (timeValid)
-    {
-        datetime_t now;
-        
-        if (rtc_get_datetime(&now))
-        {        
-            ret = stringFormat("%d/%d/%d",
-                    now.month, now.day, now.year);
-        }
+    datetime_t now;
+    
+    if (rtc_get_datetime(&now))
+    {        
+        ret = stringFormat("%d/%d/%d",
+                now.month, now.day, now.year);
+    }
+
+    return (ret);
+}
+
+
+/********************************************************
+ * logTimeString()
+ ********************************************************
+ * return a human-readable date string formatted for logging
+ *******************************************************/
+std::string walltime::logTimeString()
+{
+    std::string ret = std::string("<not set>");
+
+    datetime_t now;
+    
+    if (rtc_get_datetime(&now))
+    {        
+        ret = stringFormat("%04d%02d%02d %02d:%02d:%02d",
+                now.year, now.month, now.day,
+                now.hour, now.min, now.sec);
     }
 
     return (ret);

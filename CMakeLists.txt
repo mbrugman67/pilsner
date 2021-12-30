@@ -37,7 +37,7 @@ add_executable(pilsner ${SOURCE_FILES})
 pico_generate_pio_header (pilsner ${CMAKE_CURRENT_LIST_DIR}/ds1820//ds1820.pio OUTPUT_DIR ${CMAKE_CURRENT_LIST_DIR}/build/generated)
 
 # Libraries
-target_link_libraries(pilsner pico_stdlib hardware_spi pico_time pico_sync pico_multicore hardware_rtc hardware_pio)
+target_link_libraries(pilsner pico_stdlib hardware_spi pico_time pico_sync pico_multicore hardware_rtc hardware_pio hardware_flash hardware_sync)
  
 # Enable USB, UART output
 pico_enable_stdio_usb(pilsner 1)

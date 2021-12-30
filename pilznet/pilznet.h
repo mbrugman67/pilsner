@@ -44,9 +44,6 @@ public:
 
     bool doNTP(const std::string& tz);
     bool isClockValid(void) const               { return (clockValid); }
-    const std::string getTimeString(void);
-    const std::string getDateString(void);
-    const datetime_t getDateTime(void)          { return (wt.getDateTime()); }
 
 private:
     bool connected;

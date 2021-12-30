@@ -1,12 +1,15 @@
 #include "pilznet.h"
+#include "pico/bootrom.h"
 
 #include "../project.h"
 #include "../af/Wifi.h"
 #include "../utils/stringFormat.h"
 #include "../ipc/mlogger.h"
+#include "hardware/watchdog.h"
 
 static WiFiClass wifi;
 static WiFiUDP udp;
+static logger* log = NULL;
 
 void pilznet::init()
 {
@@ -16,6 +19,8 @@ void pilznet::init()
     this->clockValid = false;
     this->macAddr = std::string("00:00:00:00:00:00:");
     this->ipAddr = std::string("0.0.0.0");
+
+    log = logger::getInstance();
 }
 
 bool pilznet::connect(const std::string& ap, const std::string& pw)
@@ -27,14 +32,14 @@ bool pilznet::connect(const std::string& ap, const std::string& pw)
     {
         if ((++timeout) > 10)
         {
-            dbgWrite(stringFormat("Timed out waiting for module to wake up\n"));
+            log->errWrite(stringFormat("Timed out waiting for module to wake up\n"));
             return (false);
         }
         sleep_ms(1000);
     }
 
     int conResult = wifi.begin(ap.c_str(), pw.c_str());
-    dbgWrite(stringFormat("%s::Connection result %s\n", __FUNCTION__, this->status2text(conResult).c_str()));
+    log->dbgWrite(stringFormat("%s::Connection result %s\n", __FUNCTION__, this->status2text(conResult).c_str()));
 
     if (conResult == WL_CONNECTED)
     {
@@ -57,38 +62,43 @@ bool pilznet::update(void)
 
     int bytesAvailable = udp.parsePacket();
     
-    if (bytesAvailable)
+    if (bytesAvailable > 0)
     {
-        char* buff = new char[bytesAvailable];
-        if (!buff)
+        char cmd = (char)udp.read();
+        switch (cmd)
         {
-            dbgWrite(stringFormat("Unable to allocate %d bytes for new UDP packet\n", bytesAvailable));
-            return (retVal);
-        }
-
-        IPAddress remoteIP = udp.remoteIP();
-        int remotePort = udp.remotePort();
-        udp.read(buff, bytesAvailable);
-
-        if (buff[0] == 'x')
-        {
-            //std::string dbgBuffer = dbgPop();
-            char t[2049];
-            memset(t, 0, 2049);
-            size_t bRead = 2048;
-            dbgPop(t, bRead);
-
-            if (bRead)
+            // request for log buffer, send it back
+            case 'x':
             {
-                udp.beginPacket(remoteIP, remotePort);
-                udp.write((uint8_t*)t, bRead);
-                udp.endPacket();
+                std::string dbgBuffer = log->dbgPop();
+                if (dbgBuffer.length())
+                {
+                    udp.beginPacket(udp.remoteIP(), udp.remotePort());
+                    udp.write((uint8_t*)dbgBuffer.c_str(), dbgBuffer.length());
+                    udp.endPacket();
+                }
+            }  break;
+
+            // request for rebooten 
+            case 'n':
+            {
+                watchdog_enable(1, 0);
+                while(true);
+            }  break;
+
+            // request for rebooten into UF2 bootloader (save on USB connector cycles!)
+            case 'r':
+            {
+                reset_usb_boot(0, 0);
+            }  break;
+            
+            default:
+            {
+                log->warnWrite(stringFormat("Saw a '%c' on listening port\n", cmd));
             }
         }
-
         retVal = true;
     }
-
 
     return (retVal);
 }
@@ -109,25 +119,6 @@ bool pilznet::doNTP(const std::string& tz)
     return (this->clockValid);
 }
 
-const std::string pilznet::getTimeString(void)
-{
-    if (this->clockValid)
-    {
-        return (wt.timeString());
-    }
-    return (std::string("Time not set"));
-}
-
-const std::string pilznet::getDateString(void)
-{
-    if (this->clockValid)
-    {
-        return (wt.dateString());
-    }
-    return (std::string("Date not set"));
-}
-
-
 /****************************************************
  * Similar to Linux `iwlist wlan0 scanning`
  ****************************************************/
@@ -139,7 +130,7 @@ const scan_data_t pilznet::scan()
 
     if (ret.count == -1)
     {
-        dbgWrite(stringFormat("Unable to get a network link\n"));
+        log->errWrite(stringFormat("Unable to get a network link\n"));
     }
     else
     {
@@ -163,9 +154,6 @@ const scan_data_t pilznet::scan()
 
     return (ret);
 }
-
-
-
 
 const std::string pilznet::encryption2text(int thisType) 
 {

@@ -9,6 +9,7 @@
 
 #include "pico/stdlib.h"
 #include "pico/multicore.h"
+#include "hardware/watchdog.h"
 #include <stdio.h>
 #include <cstring>
 #include <string>
@@ -20,7 +21,9 @@
 #include "./sys/ir.h"
 #include "./ipc/ipc.h"
 #include "./ipc/mlogger.h"
+#include "./sys/walltime.h"
 #include "./utils/stringFormat.h"
+#include "./sys/nvm.h"
 
 static inter_core_t ipcCore0Data;
 static uint32_t msTick = 0;
@@ -51,6 +54,7 @@ bool ledIRTest()
     static ir infra(PIN_IR);
     static uint8_t value = 0;
     static uint32_t startTime = 0;
+    static logger* log = logger::getInstance();
 
     if (infra.isCodeAvailable())
     {
@@ -58,32 +62,24 @@ bool ledIRTest()
         irKey_t cmd = infra.getKeyCode();
         if (cmd != KEY_NULL)
         {
-            dbgWrite(stringFormat("\nKey %s\n", infra.getKeyName(cmd).c_str()));
-
             switch (cmd)
             {
                 case KEY_0:
                 {
-                    dbgWrite(stringFormat("%s::seconds since boot: %d\n", __FUNCTION__, to_ms_since_boot(get_absolute_time() / 1000)));
+                    log->dbgWrite(stringFormat("%s::seconds since boot: %d\n", __FUNCTION__, to_ms_since_boot(get_absolute_time() / 1000)));
                 }  break;
 
                 case KEY_1:
                 {
-                    if (!inProgress)
-                    {
-                        dbgWrite(stringFormat("%s::Asking for clock\n", __FUNCTION__));
-                        startTime = msTick;
-                        inProgress = true;
-                        ipcCore0Data.cmd = IS_GET_CLOCK_TIME;
-                        updateSharedData(US_NEW_CMD, ipcCore0Data);
-                    }
+                    log->dbgWrite(stringFormat("%s::%s %s\n", __FUNCTION__,
+                        walltime::timeString().c_str(), walltime::dateString().c_str()));
                 }  break;
 
                 case KEY_2:
                 {
                     if (!inProgress)
                     {
-                        dbgWrite(stringFormat("%s::Asking for IP Address\n", __FUNCTION__));
+                        log->dbgWrite(stringFormat("%s::Asking for IP Address\n", __FUNCTION__));
                         startTime = msTick;
                         inProgress = true;
                         ipcCore0Data.cmd = IS_GET_IP;
@@ -95,7 +91,7 @@ bool ledIRTest()
                 {
                     if (!inProgress)
                     {
-                        dbgWrite(stringFormat("%s::Asking for MAC Address\n", __FUNCTION__));
+                        log->dbgWrite(stringFormat("%s::Asking for MAC Address\n", __FUNCTION__));
                         startTime = msTick;
                         inProgress = true;
                         ipcCore0Data.cmd = IS_GET_MAC;
@@ -107,7 +103,7 @@ bool ledIRTest()
                 {
                     if (!inProgress)
                     {
-                        dbgWrite(stringFormat("%s::Asking for net scan\n", __FUNCTION__));
+                        log->dbgWrite(stringFormat("%s::Asking for net scan\n", __FUNCTION__));
                         startTime = msTick;
                         inProgress = true;
                         ipcCore0Data.cmd = IS_DO_SCAN;
@@ -135,7 +131,7 @@ bool ledIRTest()
         }
         else
         {
-            dbgWrite(stringFormat("%s::Unknown: 0x%02xn", __FUNCTION__, cmd));
+            log->warnWrite(stringFormat("%s::Unknown: 0x%02xn", __FUNCTION__, cmd));
         }
     }
 
@@ -146,34 +142,25 @@ bool ledIRTest()
 
         if (ipcCore0Data.ack == IS_GET_IP)
         {
-            dbgWrite(stringFormat("%s::Got IP Addr %s in %dms\n", __FUNCTION__, ipcCore0Data.ipAddress.c_str(), elapsed));
+            log->dbgWrite(stringFormat("%s::Got IP Addr %s in %dms\n", __FUNCTION__, ipcCore0Data.ipAddress.c_str(), elapsed));
         }
         else if (ipcCore0Data.ack == IS_GET_MAC)
         {
-            dbgWrite(stringFormat("%s::Got MAC Addr %s in %dms\n", __FUNCTION__, ipcCore0Data.macAddress.c_str(), elapsed));
-        }
-        else if (ipcCore0Data.ack == IS_GET_CLOCK_TIME)
-        {
-            datetime_t now = ipcCore0Data.clockTime;
-
-            dbgWrite(stringFormat("%s::Got clock time in %dms:\n", __FUNCTION__, elapsed));
-            dbgWrite(stringFormat("->%02d::%02d::%02d  %d/%d/%d\n",
-                    now.hour, now.min, now.sec,
-                    now.month, now.day, now.year));
+            log->dbgWrite(stringFormat("%s::Got MAC Addr %s in %dms\n", __FUNCTION__, ipcCore0Data.macAddress.c_str(), elapsed));
         }
         else if (ipcCore0Data.ack == IS_DO_SCAN)
         {
-            dbgWrite(stringFormat("%s::Scan done in %dms:\n", __FUNCTION__, elapsed));
+            log->dbgWrite(stringFormat("%s::Scan done in %dms:\n", __FUNCTION__, elapsed));
 
-            dbgWrite(stringFormat(" Found %d access points:\n", ipcCore0Data.scanResult.count));
+            log->dbgWrite(stringFormat(" Found %d access points:\n", ipcCore0Data.scanResult.count));
             std::vector<ap_data_t>::const_iterator cit = ipcCore0Data.scanResult.apData.begin();
             while (cit != ipcCore0Data.scanResult.apData.end())
             {
-                dbgWrite(stringFormat("  Name: %s\n", cit->ssid.c_str()));
-                dbgWrite(stringFormat("    BSSID: %s\n", cit->bssid.c_str()));
-                dbgWrite(stringFormat("    Strength: %ddbm\n", cit->strength));
-                dbgWrite(stringFormat("    Channel: %d\n", cit->channel));
-                dbgWrite(stringFormat("    Encryption: %s\n", cit->encryption.c_str()));
+                log->dbgWrite(stringFormat("  Name: %s\n", cit->ssid.c_str()));
+                log->dbgWrite(stringFormat("    BSSID: %s\n", cit->bssid.c_str()));
+                log->dbgWrite(stringFormat("    Strength: %ddbm\n", cit->strength));
+                log->dbgWrite(stringFormat("    Channel: %d\n", cit->channel));
+                log->dbgWrite(stringFormat("    Encryption: %s\n", cit->encryption.c_str()));
                 ++cit;
             }
         }
@@ -191,14 +178,23 @@ bool ledIRTest()
 int main()
 {
     stdio_init_all();
-    initDebugBuffer();
+    logger* log = logger::getInstance();
+    log->initBuffer();
 
-    dbgWrite(stringFormat("\n****************starting****************\n"));
+    log->dbgWrite("\n****************starting****************\n");
+
+    if (watchdog_enable_caused_reboot())
+    {
+        log->dbgWrite("Rebooted by watchdog!\n");
+    }
 
     if (initIPC())
     {
         multicore_launch_core1(core1Main);
     }
+
+    nvm data;
+    data.init();
 
     msTick = to_ms_since_boot(get_absolute_time());
     uint32_t lastMs = msTick;
@@ -223,18 +219,15 @@ int main()
             case 2:
             {
                 static uint32_t lastTempCount = 0;
+                static float lastTemp = 0.0;
 
-                if (lastTempCount != ipcCore0Data.tempCount)
+                if (lastTempCount != ipcCore0Data.tempCount && lastTemp != ipcCore0Data.temperatue)
                 {
-                    datetime_t now;
-                    rtc_get_datetime(&now);
-                    dbgWrite(stringFormat("[+]%04d%02d%02d,%02d:%02d:%02d,%02.1f\n", 
-                        now.year, now.month, now.day,
-                        now.hour, now.min, now.sec,
-                        ipcCore0Data.temperatue));
-                    
-                    lastTempCount = ipcCore0Data.tempCount;
+                    log->infoWrite(stringFormat("%02.1f\n", ipcCore0Data.temperatue));
                 }
+                
+                lastTempCount = ipcCore0Data.tempCount;
+                lastTemp = ipcCore0Data.temperatue;
             }  break;
             
             case 3:

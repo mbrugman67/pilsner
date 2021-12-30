@@ -7,6 +7,7 @@
 #include "./ipc/ipc.h"
 #include "./pilznet/pilznet.h"
 #include "./ipc/mlogger.h"
+#include "./sys/walltime.h"
 #include "./utils/stringFormat.h"
 #include "./ds1820/ds1820.h"
 #include "creds.h"
@@ -22,7 +23,9 @@ static inter_core_t ipcCore1Data;
  ********************************************************/
 void core1Main(void)
 {
-    dbgWrite(stringFormat("%s::Entering\n", __FUNCTION__));
+    logger* log = logger::getInstance();
+
+    log->dbgWrite(stringFormat("%s::Starting\n", __FUNCTION__));
 
     uint32_t ms = to_ms_since_boot(get_absolute_time());
     uint32_t lastMs = ms;
@@ -30,50 +33,31 @@ void core1Main(void)
 
     // first thing is to initialize the Wifi
     pnet.init();
-    ipcCore1Data.wifiConnected = pnet.connect(WIFI_ACCESS_POINT_NAME, WIFI_PASSPHRASE);
-    ipcCore1Data.clockReady = pnet.doNTP("CST6CDT");
+    pnet.connect(WIFI_ACCESS_POINT_NAME, WIFI_PASSPHRASE);
+    pnet.doNTP("CST6CDT");
 
-    dbgWrite(stringFormat("%s::Network and clock initialized\n", __FUNCTION__));
+    ipcCore1Data.wifiConnected = pnet.isConnected();
+    ipcCore1Data.clockReady = pnet.isClockValid();
+
+    log->dbgWrite(stringFormat("%s()::%s\n", __FUNCTION__, pnet.getIP().c_str()));
     
     // init temperature sensor
     uint32_t sm = probe.init((PIO)pio0, 15);
 
+    // do the first update
     updateSharedData(US_CORE1_READY | US_WIFI_CONNECTED | US_CLOCK_READY, ipcCore1Data);
-
-    dbgWrite(stringFormat("%s::First shared data update done\n", __FUNCTION__));
 
     while (true)
     { 
         uint16_t updates = US_NONE;
         
         switch (tick)
-        {
+        {   
             case 0:
-            {
-                if (ipcCore1Data.cmd == IS_GET_CLOCK_TIME)
-                {
-                    dbgWrite(stringFormat("%s::Get clock time\n", __FUNCTION__));
-
-                    updates = US_NEW_CMD;
-                    ipcCore1Data.cmd = IS_NO_CMD;
-
-                    if (pnet.isClockValid())
-                    {
-                        ipcCore1Data.ack = IS_GET_CLOCK_TIME;
-                        ipcCore1Data.clockTime = pnet.getDateTime();
-                        updates |= US_CLOCK_TIME | US_ACK_CMD;
-                        ipcCore1Data.ack = IS_GET_CLOCK_TIME;
-                    }
-                    
-                    updateSharedData(updates, ipcCore1Data);
-                }
-            }  break;
-            
-            case 1:
             {
                 if (ipcCore1Data.cmd == IS_GET_IP)
                 {
-                    dbgWrite(stringFormat("%s::Get IP Address\n", __FUNCTION__));
+                    log->dbgWrite(stringFormat("%s::Get IP Address\n", __FUNCTION__));
 
                     updates = US_NEW_CMD;
                     ipcCore1Data.cmd = IS_NO_CMD;
@@ -89,11 +73,11 @@ void core1Main(void)
                 }
             }  break;
             
-            case 2:
+            case 1:
             {
                 if (ipcCore1Data.cmd == IS_GET_MAC)
                 {
-                    dbgWrite(stringFormat("%s::Get MAC address\n", __FUNCTION__));
+                    log->dbgWrite(stringFormat("%s::Get MAC address\n", __FUNCTION__));
 
                     updates = US_NEW_CMD;
                     ipcCore1Data.cmd = IS_NO_CMD;
@@ -109,11 +93,11 @@ void core1Main(void)
                 }
             }  break;
             
-            case 3:
+            case 2:
             {
                 if (ipcCore1Data.cmd == IS_DO_SCAN)
                 {
-                    dbgWrite(stringFormat("%s::Starting net scan\n", __FUNCTION__));
+                    log->dbgWrite(stringFormat("%s::Starting net scan\n", __FUNCTION__));
 
                     updates = US_NEW_CMD;
                     ipcCore1Data.cmd = IS_NO_CMD;
@@ -129,7 +113,7 @@ void core1Main(void)
                 }
             }  break;
             
-            case 4:
+            case 3:
             {
                 static uint16_t count = 0;
 
@@ -143,15 +127,12 @@ void core1Main(void)
                 ++count;
             }  break;
 
-            case 5:
+            case 4:
             {
                 pnet.update();
-                        
                 updateSharedData(IS_NO_CMD, ipcCore1Data);
             }  break;
         }
-
-
 
         // tight part of service loop
         while(ms == lastMs)
@@ -162,6 +143,6 @@ void core1Main(void)
         lastMs = ms;
         
         ++tick;
-        tick %= 6;
+        tick %= 5;
     }
 }

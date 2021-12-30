@@ -1,18 +1,22 @@
 #include <string>
 #include <cstring>
 
+#include "mlogger.h"
 #include "../utils/stringFormat.h"
 #include "pico/multicore.h"
+#include "../sys/walltime.h"
 
-#define DEBUG_BUFFER_SIZE   2048
+logger* logger::instance = NULL;
 
-static char* buff = NULL;
-static size_t head = 0;
-static size_t tail = 0;
-static size_t used = 0;
-static size_t capacity = DEBUG_BUFFER_SIZE;
+logger* logger::getInstance()
+{
+    if (!instance)
+    {
+        instance = new logger();
+    }
 
-static mutex_t dbgMtx;
+    return (instance);
+}
 
 /*********************************************
  * initDebugBuffer()
@@ -21,24 +25,13 @@ static mutex_t dbgMtx;
  * 
  * Returns false if unable to allocate
  ********************************************/
-bool initDebugBuffer()
+bool logger::initBuffer()
 {
-    if (buff)
-    {
-        delete[] buff;
-    }
-
-    buff = new char[DEBUG_BUFFER_SIZE];
-    if (!buff)
-    {
-        return (false);
-    }
-
-    std::memset(buff, 0, DEBUG_BUFFER_SIZE);
+    std::memset(buff, 0, LOGGER_BUFFER_SIZE);
     head = 0;
     tail = 0;
     used = 0;
-    capacity = DEBUG_BUFFER_SIZE;
+    capacity = LOGGER_BUFFER_SIZE;
 
     mutex_init(&dbgMtx);
 
@@ -50,7 +43,7 @@ bool initDebugBuffer()
  *********************************************
  * Returns number of bytes left in buffer
  ********************************************/
-size_t available()
+size_t logger::available()
 {
     return (capacity - ((head - tail) + capacity) % capacity);
 }
@@ -60,7 +53,7 @@ size_t available()
  *********************************************
  * Returns number of bytes used in buffer
  ********************************************/
-size_t consumed()
+size_t logger::consumed()
 {
     return (capacity - available());
 }
@@ -70,7 +63,7 @@ size_t consumed()
  *********************************************
  * Returns true if buffer empty
  ********************************************/
-bool isEmpty()
+bool logger::isEmpty()
 {
     return (head == tail);
 }
@@ -80,7 +73,7 @@ bool isEmpty()
  *********************************************
  * Returns true if buffer full
  ********************************************/
-bool isFull()
+bool logger::isFull()
 {
     return (consumed() == capacity - 1);
 }
@@ -94,28 +87,24 @@ bool isFull()
  * Not callable from outside, this is just the
  * local implementation to add a char
  ********************************************/
-size_t addChar(char c)
+size_t logger::addChar(char c)
 {
-    if (!buff)
-    {
-        return (0);
-    }
+    mutex_enter_blocking(&dbgMtx);
 
     // Never ending buffer... if it's full, just
     // increment the tail by one to make room.
     // this the newest byte will overwrite
     // the oldest
-    if (isFull())
+    if (this->isFull())
     {
         ++tail;
-        tail %= DEBUG_BUFFER_SIZE;
+        tail %= LOGGER_BUFFER_SIZE;
     }
 
     // add and increment
-    mutex_enter_blocking(&dbgMtx);
     buff[head] = c;
     ++head;
-    head %= DEBUG_BUFFER_SIZE;  
+    head %= LOGGER_BUFFER_SIZE;  
     mutex_exit(&dbgMtx);  
 
     return (1);
@@ -127,7 +116,7 @@ size_t addChar(char c)
  * add an STL string to the buffer and return
  * the number of bytes added
  ********************************************/
-size_t dbgWrite(const std::string& s)
+size_t logger::write(const std::string& s)
 {
     size_t count = 0;
 
@@ -136,23 +125,44 @@ size_t dbgWrite(const std::string& s)
     std::string::const_iterator it = s.begin();
     while (it != s.end())
     {
-        count += addChar(*it);
+        count += this->addChar(*it);
         ++it;
     }
 
     return (count);
 }
 
-/*********************************************
- * dbgWrite()
- *********************************************
- * add an integer to the buffer and return
- * the number of bytes added
- ********************************************/
-size_t dbgWrite(int i)
+
+size_t logger::msgWrite(const std::string& ms)
 {
-    return (dbgWrite(stringFormat("%d", i)));
+    std::string s = stringFormat("[+] %s,%s", walltime::logTimeString().c_str(), ms.c_str());
+    return (this->write(s));
 }
+
+size_t logger::dbgWrite(const std::string& ms)
+{
+    std::string s = stringFormat("[D] %s,%s", walltime::logTimeString().c_str(), ms.c_str());
+    return (this->write(s));
+}
+
+size_t logger::infoWrite(const std::string& is)
+{
+    std::string s = stringFormat("[+] %s,%s", walltime::logTimeString().c_str(), is.c_str());
+    return (this->write(s));
+}
+
+size_t logger::errWrite(const std::string& es)
+{
+    std::string s = stringFormat("[E] %s,%s", walltime::logTimeString().c_str(), es.c_str());
+    return (this->write(s));
+}
+
+size_t logger::warnWrite(const std::string& ws)
+{
+    std::string s = stringFormat("[W] %s,%s", walltime::logTimeString().c_str(), ws.c_str());
+    return (this->write(s));
+}
+
 
 /*********************************************
  * dbgWrite()
@@ -161,9 +171,9 @@ size_t dbgWrite(int i)
  * in the form of 0x0000 to the buffer and 
  * return the number of bytes added
  ********************************************/
-size_t dbgHexWrite(int i)
+size_t logger::hexWrite(int i)
 {
-    return (dbgWrite(stringFormat("0x%04x", i)));
+    return (this->write(stringFormat("0x%04x", i)));
 }
 
 /*********************************************
@@ -172,28 +182,16 @@ size_t dbgHexWrite(int i)
  * pull the oldest character out of the buffer.
  * Internal implementation method
  ********************************************/
-bool dbgPop(char& c)
+void logger::dbgPop(char& c)
 {
-    bool ret = false;
- 
-    if (!buff)
-    {
-        return (ret);
-    }    
-
     if (head != tail)
     {
-
         mutex_enter_blocking(&dbgMtx);
         c = buff[tail];
         ++tail;
-        tail %= DEBUG_BUFFER_SIZE;
+        tail %= LOGGER_BUFFER_SIZE;
         mutex_exit(&dbgMtx);
-
-        ret = true;
     }
-
-    return (ret);
 }
 
 /*********************************************
@@ -207,25 +205,20 @@ bool dbgPop(char& c)
  * buffer to the number of bytes actually
  * loaded
  ********************************************/
-bool dbgPop(char* c, size_t& len)
+void logger::dbgPop(char* c, size_t& len)
 {
-    bool ret = false;
     if (c && len > 0)
     {
-        if (len > consumed())
+        if (len > this->consumed())
         {
-            len = consumed();
+            len = this->consumed();
         }
 
         for (size_t ii = 0; ii < len; ++ii)
         {
-            dbgPop(c[ii]);
+            this->dbgPop(c[ii]);
         }
-        
-        ret = true;
     }
-
-    return (true);
 }
 
 /*********************************************
@@ -234,11 +227,11 @@ bool dbgPop(char* c, size_t& len)
  * return all of the contents of the buffer
  * as a std::string
  ********************************************/
-std::string dbgPop()
+std::string logger::dbgPop()
 {
     std::string ret;
 
-    size_t len = consumed();
+    size_t len = this->consumed();
     if (len)
     {
         char c;
@@ -246,7 +239,7 @@ std::string dbgPop()
         for (size_t ii = 0; ii < len; ++ii)
         {
             dbgPop(c);
-            ret.push_back(c);
+            ret[ii] = c;
         }
     }
 

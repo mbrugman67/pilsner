@@ -42,9 +42,9 @@ public:
     bool doNTP();
     bool setArmClockTime();
 
-    const datetime_t getDateTime();
-    const std::string timeString();
-    const std::string dateString();
+    static std::string timeString();
+    static std::string dateString();
+    static std::string logTimeString();
 
 private:
     struct zdata_t
