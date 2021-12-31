@@ -7,6 +7,7 @@
  * 
  *******************************************************/
 #include "hardware/flash.h"
+#include "hardware/sync.h"
 #include "pico/stdlib.h"
 
 #include "nvm.h"
@@ -17,7 +18,12 @@
 #define SIG (uint32_t)(0xabad1dea)              // signature to know we're valid
 #define ENDSIG (uint32_t)(0x2bad1dea)           // ending signature
 #define END_OF_FLASH    (uint32_t)(0x001f0000)  // 2 meg of flash on board
-#define BLOCK_SIZE      (uint32_t)(0x00000100)  // block size is 256 bytes
+
+// Offset is one sector from the end of the flash
+#define START_OFFSET    (uint32_t)(END_OF_FLASH - FLASH_SECTOR_SIZE)
+
+// Read location is offset from the start of the Execute-in-Place in memory map
+#define READ_LOCATION   (uint32_t)(XIP_BASE + START_OFFSET)
 
 nvm* nvm::instance = NULL;
 
@@ -37,7 +43,6 @@ nvm* nvm::getInstance()
     if (!instance)
     {
         instance = new nvm;
-        instance->init();
     }
 
     return (instance);
@@ -50,20 +55,52 @@ nvm* nvm::getInstance()
  *******************************************************/
 void nvm::write()
 {
-    uint32_t startTime = to_ms_since_boot(get_absolute_time());
-    
-    // it is the last block in the flash chip
-    uint32_t loc = END_OF_FLASH - BLOCK_SIZE;
-    uint8_t data[BLOCK_SIZE];
+    if (get_core_num() == 1)
+    {
+        log->errWrite("Cannot call nvm::write() from core 1!!\n");
+        return;
+    }
 
-    // so we have to write a full block
-    std::memset(data, 0, BLOCK_SIZE);
-    // but the actual data is less than that
-    std::memcpy(data, (void*)&nvmData, sizeof(nvmData));
+    // it is the last block in the flash chip
+    uint32_t loc = START_OFFSET;
+
+    // we write a full page at a crack
+    uint8_t data[FLASH_PAGE_SIZE];
+
+    // pointer to the start of the structure
+    uint8_t* ptr = (uint8_t*)&nvmData;
+
+    // total number of bytes to write
+    size_t bytesRemaining = sizeof(nvmData);
 
     mutex_enter_blocking(&mtx);
-    flash_range_program(loc, data, 1);
+
+    while (bytesRemaining)
+    {
+        // see how many bytes are remaining to be written.  if it's 
+        // more than a block size, then write the next block
+        size_t bytesToWrite = bytesRemaining;
+
+        if (bytesToWrite >= FLASH_PAGE_SIZE)
+        {
+            bytesToWrite = FLASH_PAGE_SIZE;
+        }
+
+        // clear the buffer and copy the data to it
+        std::memset(data, 0, FLASH_PAGE_SIZE);
+        std::memcpy(data, ptr, bytesToWrite);
+
+        // write the page to flash
+        flash_range_program(loc, data, FLASH_PAGE_SIZE);
+
+        // increment the starting address in the NVM structure
+        ptr += FLASH_BLOCK_SIZE;
+
+        // decrement by the number of bytes 
+        bytesRemaining -= bytesToWrite;
+    }
     mutex_exit(&mtx);
+    log->dbgWrite("Done writing to Flash\n");
 }
 
 /********************************************************
@@ -73,17 +110,19 @@ void nvm::write()
  *******************************************************/
 void nvm::load()
 {
-    // put our NVM data at the very end of flash
-    const uint8_t* loc = (const uint8_t*)(XIP_BASE + END_OF_FLASH - BLOCK_SIZE);
+    // put our NVM data at last sector of flash.  Reading from the flash
+    // uses the address of the flash in the memory map (hence the XIP_BASE offset)
+    const uint8_t* loc = (const uint8_t*)(READ_LOCATION);
 
     // get it
-    mutex_enter_blocking(&mtx);
+    //mutex_enter_blocking(&mtx);
     std::memcpy((void*)&nvmData, loc, sizeof(nvmData));
-    mutex_exit(&mtx);
+    //mutex_exit(&mtx);
 
     // is it good?
     if (nvmData.signature != SIG || nvmData.endSig != ENDSIG)
     {
+        log->warnWrite("Setting NVM defaults\n");
         this->setDefaults();
         this->write();
     }
@@ -96,8 +135,6 @@ void nvm::load()
  *******************************************************/
 void nvm::setDefaults()
 {
-    log->errWrite(stringFormat("Bad signature 0x%08x!  Resetting to defaults\n", nvmData.signature));
-
     nvmData.signature = SIG;
     nvmData.setpoint = 65.0;
     nvmData.hysteresis = 1.0;
@@ -105,8 +142,6 @@ void nvm::setDefaults()
     strncpy(nvmData.pw, WIFI_PASSPHRASE, 63);
     strncpy(nvmData.tz, "CST6CDT", 31);
     nvmData.endSig = ENDSIG;
-
-    this->write();
 }
 
 /********************************************************
@@ -119,17 +154,20 @@ void nvm::setDefaults()
  *******************************************************/
 void nvm::dump2String()
 {
-    log->dbgWrite("NVM:\n");
     log->dbgWrite(stringFormat("\n  Signature - 0x%08x\n"
-                                 "   Setpoint - %d\n"
+                                 "   Setpoint - %02.1f\n"
+                                 " Hysteresis - %02.1f\n"
                                  "       SSID - %s\n"
                                  "         PW - %s\n"
-                                 "   Timezone - %s\n",
+                                 "   Timezone - %s\n"
+                                 "    End Sig - 0x%08x\n",
             nvmData.signature,
             nvmData.setpoint,
+            nvmData.hysteresis,
             nvmData.ssid,
             nvmData.pw,
-            nvmData.tz));
+            nvmData.tz,
+            nvmData.endSig));
 }
 
 /********************************************************

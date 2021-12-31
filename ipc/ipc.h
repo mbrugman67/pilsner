@@ -29,7 +29,8 @@ enum inter_core_cmd_t
     IS_NO_CMD = 0,      // null command
     IS_GET_IP,          // get IP address from net
     IS_GET_MAC,         // get MAC address from net
-    IS_DO_SCAN          // do a network scan for Access Points
+    IS_DO_SCAN,         // do a network scan for Access Points
+    IS_LOCK_CORE_1      // command core 1 to lock (to allow writes to NVM)
 };
 
 // Bitmask of changed data

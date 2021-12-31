@@ -22,4 +22,6 @@
 #define PIN_PUMP        8   //  Pin connected to pump power relay
 #define PIN_IR         11   //  Pin connected to I/R receiver
 
+extern bool wakeCore1;
+
 #endif // PROJECT_H_

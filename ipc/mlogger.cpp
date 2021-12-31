@@ -140,6 +140,8 @@ size_t logger::write(const std::string& s)
 {
     size_t count = 0;
 
+    printf(s.c_str());
+
     // strings are just STL containers, so
     // use the standard tools
     std::string::const_iterator it = s.begin();
@@ -160,7 +162,7 @@ size_t logger::write(const std::string& s)
  ********************************************/
 size_t logger::msgWrite(const std::string& ms)
 {
-    std::string s = stringFormat("[+] %s,%s", walltime::logTimeString().c_str(), ms.c_str());
+    std::string s = stringFormat("[+%d] %s,%s", get_core_num(), walltime::logTimeString().c_str(), ms.c_str());
     return (this->write(s));
 }
 
@@ -172,7 +174,7 @@ size_t logger::msgWrite(const std::string& ms)
  ********************************************/
 size_t logger::dbgWrite(const std::string& ms)
 {
-    std::string s = stringFormat("[D] %s,%s", walltime::logTimeString().c_str(), ms.c_str());
+    std::string s = stringFormat("[D%d] %s,%s", get_core_num(), walltime::logTimeString().c_str(), ms.c_str());
     return (this->write(s));
 }
 
@@ -184,7 +186,7 @@ size_t logger::dbgWrite(const std::string& ms)
  ********************************************/
 size_t logger::infoWrite(const std::string& is)
 {
-    std::string s = stringFormat("[+] %s,%s", walltime::logTimeString().c_str(), is.c_str());
+    std::string s = stringFormat("[+%d] %s,%s", get_core_num(), walltime::logTimeString().c_str(), is.c_str());
     return (this->write(s));
 }
 
@@ -196,7 +198,7 @@ size_t logger::infoWrite(const std::string& is)
  ********************************************/
 size_t logger::errWrite(const std::string& es)
 {
-    std::string s = stringFormat("[E] %s,%s", walltime::logTimeString().c_str(), es.c_str());
+    std::string s = stringFormat("[E%d] %s,%s", get_core_num(), walltime::logTimeString().c_str(), es.c_str());
     return (this->write(s));
 }
 
@@ -208,7 +210,7 @@ size_t logger::errWrite(const std::string& es)
  ********************************************/
 size_t logger::warnWrite(const std::string& ws)
 {
-    std::string s = stringFormat("[W] %s,%s", walltime::logTimeString().c_str(), ws.c_str());
+    std::string s = stringFormat("[W%d] %s,%s", get_core_num(), walltime::logTimeString().c_str(), ws.c_str());
     return (this->write(s));
 }
 

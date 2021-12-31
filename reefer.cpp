@@ -69,7 +69,7 @@ void reefer::update(float currentTemp)
             if ((currentTemp + data->getHysteresis()) > data->getSetpoint())
             {
                 gpio_put(PIN_PUMP, true);
-                log->dbgWrite(stringFormat("Pump on %02.1/%02.1\n", currentTemp, data->getSetpoint()));
+                log->dbgWrite(stringFormat("Pump on %02.1f/%02.1f\n", currentTemp, data->getSetpoint()));
 
                 // pump needs to run a minimum amount of time
                 refTimestamp = make_timeout_time_ms(CHILL_START_DELAY);
@@ -96,7 +96,7 @@ void reefer::update(float currentTemp)
             if ((currentTemp + data->getHysteresis()) < data->getSetpoint())
             {
                 gpio_put(PIN_PUMP, false);
-                log->dbgWrite(stringFormat("Pump off %02.1/%02.1\n", currentTemp, data->getSetpoint()));
+                log->dbgWrite(stringFormat("Pump off %02.1f/%02.1f\n", currentTemp, data->getSetpoint()));
 
                 // pump needs to be off a minimum amount of time
                 refTimestamp = make_timeout_time_ms(CHILL_END_DELAY);
@@ -140,9 +140,9 @@ void reefer::update(float currentTemp)
  * Convenience method to return human readable
  * reefer state
  ********************************************/ 
-const std::string reefer::getStateName()
+const std::string reefer::getStateName(reefer_state_t state)
 {
-    switch(reeferState)
+    switch(state)
     {
         case RS_INIT:           return (std::string("Init"));
         case RS_IDLE:           return (std::string("Idle"));

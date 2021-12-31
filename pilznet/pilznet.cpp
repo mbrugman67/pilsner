@@ -43,6 +43,7 @@ void pilznet::init()
  ******************************************************/
 bool pilznet::connect(const std::string& ap, const std::string& pw)
 {
+    log->dbgWrite(stringFormat("%s(%s)\n", __FUNCTION__, ap.c_str()));
     uint8_t timeout = 0;
     this->connected = false;
 

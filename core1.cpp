@@ -25,6 +25,9 @@ static pilznet pnet;
 static ds1820 probe;
 static inter_core_t ipcCore1Data;
 
+// global
+bool wakeCore1 = false;
+
 /*********************************************************
  * core1Main()
  *********************************************************
@@ -157,10 +160,41 @@ void core1Main(void)
                 }
                 ++count;
             }  break;
+            
+            // Lock this core in prep for writing to Flash memory
+            case 4:
+            {
+                if (ipcCore1Data.cmd == IS_LOCK_CORE_1)
+                {
+                    log->dbgWrite(stringFormat("%s::Got a lock request\n", __FUNCTION__));
+
+                    updates = US_NEW_CMD;
+                    ipcCore1Data.cmd = IS_NO_CMD;
+
+                    ipcCore1Data.ack = IS_LOCK_CORE_1;
+                    updates |= US_ACK_CMD;
+                    
+                    updateSharedData(updates, ipcCore1Data);
+                    wakeCore1 = false;
+                    log->dbgWrite("Prep work done, locking now\n");
+
+                    uint32_t savedStatus = save_and_disable_interrupts();
+
+                    while (!wakeCore1)
+                    {
+                        __dsb();
+                        __wfe();
+                    }
+
+                    restore_interrupts(savedStatus);
+
+                    log->dbgWrite("Unlocked!!\n");
+                }
+            }  break;
 
             // update the network handler - this is for the udp
             // server
-            case 4:
+            case 5:
             {
                 pnet.update();
                 updateSharedData(IS_NO_CMD, ipcCore1Data);
@@ -176,6 +210,6 @@ void core1Main(void)
         lastMs = ms;
         
         ++tick;
-        tick %= 5;
+        tick %= 6;
     }
 }

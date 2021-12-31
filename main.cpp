@@ -137,15 +137,31 @@ bool ledIRTest()
 
                 case KEY_5:
                 {
-                    data->dump2String();
+                    dumpStruct(ipcCore0Data, std::string("Key5"));
                 }  break;
 
                 case KEY_6:
                 {
+                    log->dbgWrite("About to test NVM\n");
+                    data->load();
+                    data->dump2String();
                 }  break;
 
                 case KEY_7:
                 {
+                    if (!inProgress)
+                    {
+                        log->dbgWrite(stringFormat("%s::Asking core 1 to lock\n", __FUNCTION__));
+                        startTime = msTick;
+                        inProgress = true;
+                        ipcCore0Data.cmd = IS_LOCK_CORE_1;
+                        updateSharedData(US_NEW_CMD, ipcCore0Data);
+                    }
+                }  break;
+
+                case KEY_8:
+                {
+                    data->dump2String();
                 }  break;
 
                 case KEY_UP:
@@ -202,6 +218,15 @@ bool ledIRTest()
                 ++cit;
             }
         }
+        else if (ipcCore0Data.ack == IS_LOCK_CORE_1)
+        {
+            log->dbgWrite(stringFormat("%s::Got ack on core 1 lock\n", __FUNCTION__));
+            data->write();
+            log->dbgWrite(stringFormat("%s::Done writing\n", __FUNCTION__));
+            wakeCore1 = true;
+            __sev();
+            log->dbgWrite(stringFormat("%s::Sent event\n\n", __FUNCTION__));
+        }
 
         ipcCore0Data.ack = IS_NO_CMD;
         updateSharedData(US_ACK_CMD, ipcCore0Data);
@@ -217,6 +242,14 @@ int main()
 {
     // init the standard library
     stdio_init_all();
+
+    sleep_ms(6000);
+
+    // get the global singleton persisted data handler.  This has to be 
+    // done before we spin up core 1 to prevent data races!
+    data = nvm::getInstance();
+    data->init();
+    sleep_ms(50);
 
     // get the single instane of the global logger
     logger* log = logger::getInstance();
@@ -245,9 +278,6 @@ int main()
     {
         multicore_launch_core1(core1Main);
     }
-
-    // get the global singleton persisted data handler.  
-    data = nvm::getInstance();
 
     // instantiate the refregeration pump object
     reefer chill;
@@ -279,11 +309,24 @@ int main()
                 ledIRTest();
             }  break;
             
-            // task 3 - temperature control
+            // task 3 - reefer control
+            // (reefer is slang for refrigeration, not weed in this case)
             case 2:
             {
+                static reefer_state_t lastState = RS_IDLE;
+
                 chill.update(ipcCore0Data.temperatue);
                 pumpRunning = chill.isPumpRunning();
+
+                // drop a line in the log to indicate state change
+                if (lastState != chill.getReeferState())
+                {
+                    log->dbgWrite(stringFormat("Reefer state from %s to %s\n",
+                        chill.getStateName(lastState).c_str(),
+                        chill.getStateName(chill.getReeferState()).c_str()));
+                }
+
+                lastState = chill.getReeferState();
 
             }  break;
             
