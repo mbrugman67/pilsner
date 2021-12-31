@@ -5,6 +5,16 @@
  * start it up.  Start up core 1 and let it do stuff
  * December 2021, M.Brugman
  * 
+ ********************************************************
+ * To find the size of the binary that will be loaded
+ * into flash:
+ * 
+ * $ objdump --all-headers pilsner.elf | grep -i  flash_binary_end
+ *   100207e8 g       .ARM.attributes	00000000 __flash_binary_end
+ * 
+ * Flash start is 0x1000000, so subtract that from 0x100207e8
+ * and the application size is 0x000207e8, or 133069 bytes.
+ * The flash chip is 2Meg
  *******************************************************/
 
 #include "pico/stdlib.h"
@@ -18,6 +28,7 @@
 
 #include "project.h"
 #include "core1.h"
+#include "reefer.h"
 #include "./sys/ir.h"
 #include "./ipc/ipc.h"
 #include "./ipc/mlogger.h"
@@ -135,7 +146,19 @@ bool ledIRTest()
 
                 case KEY_7:
                 {
-                }
+                }  break;
+
+                case KEY_UP:
+                {
+                    data->setSetpoint(99.0);
+                    log->dbgWrite("setpoint to 99.0\n");
+                }  break;
+
+                case KEY_DOWN:
+                {
+                    data->setSetpoint(32.0);
+                    log->dbgWrite("setpoint to 32.0\n");
+                }  break;
 
                 case KEY_OK:
                 {
@@ -226,6 +249,11 @@ int main()
     // get the global singleton persisted data handler.  
     data = nvm::getInstance();
 
+    // instantiate the refregeration pump object
+    reefer chill;
+    chill.init();
+    bool pumpRunning = false;
+
     // start getting the timing stuffs
     msTick = to_ms_since_boot(get_absolute_time());
     uint32_t lastMs = msTick;
@@ -254,16 +282,9 @@ int main()
             // task 3 - temperature control
             case 2:
             {
-                static uint32_t lastTempCount = 0;
-                static float lastTemp = 0.0;
+                chill.update(ipcCore0Data.temperatue);
+                pumpRunning = chill.isPumpRunning();
 
-                if (lastTempCount != ipcCore0Data.tempCount && lastTemp != ipcCore0Data.temperatue)
-                {
-                    log->infoWrite(stringFormat("%02.1f\n", ipcCore0Data.temperatue));
-                }
-                
-                lastTempCount = ipcCore0Data.tempCount;
-                lastTemp = ipcCore0Data.temperatue;
             }  break;
             
             // Task 4 - inter-core comms updates

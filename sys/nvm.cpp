@@ -14,7 +14,8 @@
 #include "../ipc/mlogger.h"
 #include "../utils/stringFormat.h"
 
-#define sig (uint32_t)(0xabad1dea)              // signature to know we're valid
+#define SIG (uint32_t)(0xabad1dea)              // signature to know we're valid
+#define ENDSIG (uint32_t)(0x2bad1dea)           // ending signature
 #define END_OF_FLASH    (uint32_t)(0x001f0000)  // 2 meg of flash on board
 #define BLOCK_SIZE      (uint32_t)(0x00000100)  // block size is 256 bytes
 
@@ -81,7 +82,7 @@ void nvm::load()
     mutex_exit(&mtx);
 
     // is it good?
-    if (nvmData.signature != sig)
+    if (nvmData.signature != SIG || nvmData.endSig != ENDSIG)
     {
         this->setDefaults();
         this->write();
@@ -97,11 +98,13 @@ void nvm::setDefaults()
 {
     log->errWrite(stringFormat("Bad signature 0x%08x!  Resetting to defaults\n", nvmData.signature));
 
-    nvmData.signature = sig;
-    nvmData.setpoint = 65;
+    nvmData.signature = SIG;
+    nvmData.setpoint = 65.0;
+    nvmData.hysteresis = 1.0;
     strncpy(nvmData.ssid, WIFI_ACCESS_POINT_NAME, 63);
     strncpy(nvmData.pw, WIFI_PASSPHRASE, 63);
     strncpy(nvmData.tz, "CST6CDT", 31);
+    nvmData.endSig = ENDSIG;
 
     this->write();
 }

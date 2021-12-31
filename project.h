@@ -19,6 +19,7 @@
 #define PIN_RESET       5   //  INTERFACE TO WIFI MODULE
 #define PIN_GPIO0       6   //  INTERFACE TO WIFI MODULE
 #define PIN_PIO         7   //  Pin connected to temperature probe
+#define PIN_PUMP        8   //  Pin connected to pump power relay
 #define PIN_IR         11   //  Pin connected to I/R receiver
 
 #endif // PROJECT_H_

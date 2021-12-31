@@ -28,25 +28,29 @@ public:
     void setTZ(const std::string& t);
     void setSSID(const std::string& s);         
     void setPwd(const std::string& p);
-    void setSetpoint(uint16_t sp)               { nvmData.setpoint = sp; }
+    void setSetpoint(float sp)                  { nvmData.setpoint = sp; }
+    void setHysteresis (float h)                { nvmData.hysteresis = h; }
 
     void dump2String();
 
     const std::string getTZ()                   { return (nvmData.tz); }
     const std::string getSSID() const           { return (std::string(nvmData.ssid)); }
     const std::string getPwd() const            { return (std::string(nvmData.pw)); }
-    uint16_t getSetpoint() const                { return (nvmData.setpoint); }
+    float getSetpoint() const                   { return (nvmData.setpoint); }
+    float getHysteresis() const                 { return (nvmData.hysteresis); }
 private:
     struct nvm_t
     {
         uint32_t signature;     // 0
-        uint16_t setpoint;      // 4
+        float setpoint;         // 4
+        float hysteresis;       // 8
         
-        char ssid[64];          // 6
-        char pw[64];            // 70
-        char tz[32];            // 134
+        char ssid[64];          // 12
+        char pw[64];            // 76
+        char tz[32];            // 140
 
-    } nvmData;                  // 166
+        uint32_t endSig;        // 172
+    } nvmData;                  // 176 total bytes
     
     static nvm* instance;
     nvm() {}
