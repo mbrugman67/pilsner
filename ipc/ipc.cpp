@@ -1,13 +1,32 @@
+/********************************************************
+ * ipc.cpp
+ ********************************************************
+ * Pass data and commands between the cores of the 
+ * processor.  The silicon provides a pair of 32-bit
+ * FIFOs for this, but I wanted to handle more complex
+ * data and not be blocking.
+ * 
+ * December 2021, M.Brugman
+ * 
+ *******************************************************/
+
 #include "ipc.h"
 #include "pico/mutex.h"
 #include "../utils/stringFormat.h"
 #include "mlogger.h"
 
-
+// the data structure is copied here, probably unnecessary, but
+// provides reliable data integrity
 static inter_core_t icData;
 static mutex_t mtx;
 static logger* log = NULL;
 
+/*******************************************************
+ * copyIPC()
+ *******************************************************
+ * copy one structure to another.  Using some STL 
+ * strings and std::vectors, so don't do a std::memcpy()
+ ******************************************************/
 void copyIPC(const inter_core_t src, inter_core_t& dst)
 {
     dst.core1Ready      = src.core1Ready;
@@ -22,6 +41,12 @@ void copyIPC(const inter_core_t src, inter_core_t& dst)
     dst.ack             = src.ack;
 }
 
+/*******************************************************
+ * initIPC()
+ *******************************************************
+ * initialize the IPC chingus, including init'ing the
+ * mutex
+ ******************************************************/
 bool initIPC(void)
 {
     icData.core1Ready = false;
@@ -39,6 +64,14 @@ bool initIPC(void)
     return (mutex_is_initialized(&mtx));
 }
 
+/*******************************************************
+ * updateSharedData()
+ *******************************************************
+ * called by both cores, wrapped in a blocking mutex.
+ * 
+ * The first parameter is bitmask of which fields have
+ * changed
+ ******************************************************/
 bool updateSharedData(uint16_t t, inter_core_t& d)
 {
     bool ret = false;
@@ -47,6 +80,7 @@ bool updateSharedData(uint16_t t, inter_core_t& d)
     {
         mutex_enter_blocking(&mtx);
 
+        // copy the changed data in
         if (t & US_CORE1_READY)         icData.core1Ready = d.core1Ready;
         if (t & US_WIFI_CONNECTED)      icData.clockReady = d.wifiConnected;
         if (t & US_CLOCK_READY)         icData.clockReady = d.clockReady;
@@ -61,6 +95,7 @@ bool updateSharedData(uint16_t t, inter_core_t& d)
             icData.tempCount = d.tempCount;
         }
 
+        // now copy out from other core
         copyIPC(icData, d);
         ret = true;
 
@@ -70,7 +105,12 @@ bool updateSharedData(uint16_t t, inter_core_t& d)
     return (ret);
 }
 
-
+/*******************************************************
+ * cmd2text()
+ *******************************************************
+ * convenience method to display a command in human
+ * readable form
+ ******************************************************/
 const std::string cmd2text(inter_core_cmd_t c)
 {
     switch (c)
@@ -84,6 +124,12 @@ const std::string cmd2text(inter_core_cmd_t c)
     return ("WTF?");
 }
 
+/*******************************************************
+ * dumpStruct()
+ *******************************************************
+ * convenience method to display a the entire IPC struct
+ * in human readable form
+ ******************************************************/
 void dumpStruct(const inter_core_t& d, const std::string w)
 {
     log->dbgWrite(stringFormat("%s::%s\n", __FUNCTION__, w.c_str()));
@@ -98,7 +144,12 @@ void dumpStruct(const inter_core_t& d, const std::string w)
     log->dbgWrite(stringFormat("  ack: %s\n", cmd2text(d.ack).c_str()));
 }
 
-
+/*******************************************************
+ * diffStruct()
+ *******************************************************
+ * convenience method to display the differences between
+ * two structs
+ ******************************************************/
 void diffStruct(const inter_core_t& a, const inter_core_t& b, int core)
 {
     if (a.core1Ready != b.core1Ready)       log->dbgWrite(stringFormat("%d-->core1Ready from %s to %s\n", core, a.core1Ready? "true" : "false", b.core1Ready? "true" : "false"));

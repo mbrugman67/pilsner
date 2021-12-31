@@ -1,3 +1,10 @@
+/********************************************************
+ * stringFormat.h
+ ********************************************************
+ * do safe snprintf() type formatting with std::strings
+ * December 2021, M.Brugman
+ * 
+ *******************************************************/
 #include <cstring>
 #include <cstdarg>
 #include "stringFormat.h"

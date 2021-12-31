@@ -1,3 +1,18 @@
+/***************************************************
+ * ds1820
+ ***************************************************
+ * Class to read from a DS1820 temperature probe
+ * over 1-wire.  Uses PIO
+ * 
+ * This based on code found at
+ *  https://www.i-programmer.info/programming/hardware/14527-the-pico-in-c-a-1-wire-pio-program.html
+ * with a fair bit if cleanup.  
+ * 
+ * Encapsulated in a c++ class, got rid of all
+ * of the naked arrays (ugh - arrays are EVIL!)
+ * and added some comments and stuff.
+***************************************************/
+
 .program DS1820 
 .wrap_target
 again:

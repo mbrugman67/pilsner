@@ -3,7 +3,7 @@
  ********************************************************
  * Common definitions used throughout
  * 
- * 8 April 2021, M.Brugman
+ * December 2021, M.Brugman
  * 
  *******************************************************/
 
@@ -11,14 +11,14 @@
 #define PROJECT_H_
 
 // GPIO PINS
-#define PIN_MISO        0
-#define PIN_CS          1
-#define PIN_CLOCK       2
-#define PIN_MOSI        3
-#define PIN_READY       4
-#define PIN_RESET       5
-#define PIN_GPIO0       6
-#define PIN_PIO         7
-#define PIN_IR         11
+#define PIN_MISO        0   //  INTERFACE TO WIFI MODULE
+#define PIN_CS          1   //  INTERFACE TO WIFI MODULE
+#define PIN_CLOCK       2   //  INTERFACE TO WIFI MODULE
+#define PIN_MOSI        3   //  INTERFACE TO WIFI MODULE
+#define PIN_READY       4   //  INTERFACE TO WIFI MODULE
+#define PIN_RESET       5   //  INTERFACE TO WIFI MODULE
+#define PIN_GPIO0       6   //  INTERFACE TO WIFI MODULE
+#define PIN_PIO         7   //  Pin connected to temperature probe
+#define PIN_IR         11   //  Pin connected to I/R receiver
 
 #endif // PROJECT_H_

@@ -1,3 +1,11 @@
+/********************************************************
+ * mlogger.cpp
+ ********************************************************
+ * common logger, circular buffer with mutexes to handle
+ * multicore use
+ * December 2021, M.Brugman
+ * 
+ *******************************************************/
 #include <string>
 #include <cstring>
 
@@ -8,22 +16,33 @@
 
 logger* logger::instance = NULL;
 
+/********************************************************
+ * getInstance
+ ********************************************************
+ * get the single instance of the class, instantiate
+ * if necessary.
+ * 
+ * Note - there is no instance count or deletion - this
+ * is embedded, baby; things stay for the duration!
+ *******************************************************/
 logger* logger::getInstance()
 {
+    // If this is the first call, instantiate it and
+    // do the init method
     if (!instance)
     {
         instance = new logger();
+        instance->initBuffer();
     }
 
+    // return the single instance
     return (instance);
 }
 
 /*********************************************
  * initDebugBuffer()
  *********************************************
- * initialize the buffer, allocate, etc.
- * 
- * Returns false if unable to allocate
+ * initialize the buffer, set the pointers
  ********************************************/
 bool logger::initBuffer()
 {
@@ -33,6 +52,7 @@ bool logger::initBuffer()
     used = 0;
     capacity = LOGGER_BUFFER_SIZE;
 
+    // init the mutex
     mutex_init(&dbgMtx);
 
     return (true);
@@ -132,40 +152,68 @@ size_t logger::write(const std::string& s)
     return (count);
 }
 
-
+/*********************************************
+ * msgWrite()
+ *********************************************
+ * Add a string with a categorization header
+ * and datetime string
+ ********************************************/
 size_t logger::msgWrite(const std::string& ms)
 {
     std::string s = stringFormat("[+] %s,%s", walltime::logTimeString().c_str(), ms.c_str());
     return (this->write(s));
 }
 
+/*********************************************
+ * dbgWrite()
+ *********************************************
+ * Add a string with a categorization header
+ * and datetime string
+ ********************************************/
 size_t logger::dbgWrite(const std::string& ms)
 {
     std::string s = stringFormat("[D] %s,%s", walltime::logTimeString().c_str(), ms.c_str());
     return (this->write(s));
 }
 
+/*********************************************
+ * infoWrite()
+ *********************************************
+ * Add a string with a categorization header
+ * and datetime string
+ ********************************************/
 size_t logger::infoWrite(const std::string& is)
 {
     std::string s = stringFormat("[+] %s,%s", walltime::logTimeString().c_str(), is.c_str());
     return (this->write(s));
 }
 
+/*********************************************
+ * errWrite()
+ *********************************************
+ * Add a string with a categorization header
+ * and datetime string
+ ********************************************/
 size_t logger::errWrite(const std::string& es)
 {
     std::string s = stringFormat("[E] %s,%s", walltime::logTimeString().c_str(), es.c_str());
     return (this->write(s));
 }
 
+/*********************************************
+ * warnWrite()
+ *********************************************
+ * Add a string with a categorization header
+ * and datetime string
+ ********************************************/
 size_t logger::warnWrite(const std::string& ws)
 {
     std::string s = stringFormat("[W] %s,%s", walltime::logTimeString().c_str(), ws.c_str());
     return (this->write(s));
 }
 
-
 /*********************************************
- * dbgWrite()
+ * hexWrite()
  *********************************************
  * add an integer, but do it as a hex value
  * in the form of 0x0000 to the buffer and 

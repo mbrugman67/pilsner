@@ -1,7 +1,19 @@
+########################################################
+# pull.py
+########################################################
+# Network interface to the pilsner controller.  All
+# comms are on a simple UDP socket.  Connect to UDP
+# port 1234 and send a single character to do stuff:
+#
+#  'x' - this will request the contents of the logger,
+#        pilz will return a long string of log data
+#  'r' - reboot into UF2 bootloader mode
+#  'n' - simple application reboot
+########################################################
+
 import socket
 import argparse
 import time
-#from typing_extensions import Required
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

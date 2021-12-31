@@ -1,3 +1,11 @@
+/********************************************************
+ * pilznet.h
+ ********************************************************
+ * Wrapper class for Adafruit Airlift Wifi module.  Uses
+ * modified Aruduino libraries from adafruit.com
+ * December 2021, M.Brugman
+ * 
+ *******************************************************/
 #include "pilznet.h"
 #include "pico/bootrom.h"
 
@@ -7,10 +15,15 @@
 #include "../ipc/mlogger.h"
 #include "hardware/watchdog.h"
 
-static WiFiClass wifi;
-static WiFiUDP udp;
+static WiFiClass wifi;          // From Arduino libraries - General Wifi
+static WiFiUDP udp;             // From Arduino libraries - UDP server
 static logger* log = NULL;
 
+/*******************************************************
+ * init()
+ *******************************************************
+ * Set it up, including SPI pins
+ ******************************************************/
 void pilznet::init()
 {
     // setup SPI for Wifi module
@@ -23,11 +36,17 @@ void pilznet::init()
     log = logger::getInstance();
 }
 
+/*******************************************************
+ * connect()
+ *******************************************************
+ * Attempt to connect to the desired access point
+ ******************************************************/
 bool pilznet::connect(const std::string& ap, const std::string& pw)
 {
     uint8_t timeout = 0;
     this->connected = false;
 
+    // wait for the module to wake up; give up after 10 seconds
     while (WiFi.status() == WL_NO_MODULE)
     {
         if ((++timeout) > 10)
@@ -38,6 +57,7 @@ bool pilznet::connect(const std::string& ap, const std::string& pw)
         sleep_ms(1000);
     }
 
+    // do the connect
     int conResult = wifi.begin(ap.c_str(), pw.c_str());
     log->dbgWrite(stringFormat("%s::Connection result %s\n", __FUNCTION__, this->status2text(conResult).c_str()));
 
@@ -45,9 +65,11 @@ bool pilznet::connect(const std::string& ap, const std::string& pw)
     {
         this->connected = true;
 
+        // Start the UDP server
         udp.begin(1234);
     }
 
+    // Save the IP and MAC addresses
     this->ipAddr = wifi.localIP().ipToString();
     uint8_t mac[6];
     WiFi.macAddress(mac);
@@ -56,14 +78,24 @@ bool pilznet::connect(const std::string& ap, const std::string& pw)
     return (this->connected);
 }
 
+/*******************************************************
+ * update()
+ *******************************************************
+ * Service the UDP server
+ ******************************************************/
 bool pilznet::update(void)
 {
     bool retVal = false;
 
+    // this will return -1 or the number of bytes 
+    // waiting to be pulled.  Any bytes left over from
+    // the last check will be discarded
     int bytesAvailable = udp.parsePacket();
     
+    // are there some there?
     if (bytesAvailable > 0)
     {
+        // we only care about the first character
         char cmd = (char)udp.read();
         switch (cmd)
         {
@@ -103,7 +135,12 @@ bool pilznet::update(void)
     return (retVal);
 }
 
-
+/*******************************************************
+ * doNTP()
+ *******************************************************
+ * Request the current time/date from interwebz using
+ * the NTP protocol
+ ******************************************************/
 bool pilznet::doNTP(const std::string& tz)
 {
     this->clockValid = false;
@@ -112,20 +149,24 @@ bool pilznet::doNTP(const std::string& tz)
     {
         wt.setTimezone(std::string(tz));
         wt.doNTP();
-        sleep_ms(1000);
+        sleep_ms(10);
         this->clockValid = true;
     }
     
     return (this->clockValid);
 }
 
-/****************************************************
- * Similar to Linux `iwlist wlan0 scanning`
- ****************************************************/
+/*******************************************************
+ * scan()
+ *******************************************************
+ * Scan for all access points seen by the wifi module
+ ******************************************************/
 const scan_data_t pilznet::scan()
 {
     scan_data_t ret;
 
+    // the module tells us how many networks were seen, will
+    // return -1 in error
     ret.count = wifi.scanNetworks();
 
     if (ret.count == -1)
@@ -134,18 +175,28 @@ const scan_data_t pilznet::scan()
     }
     else
     {
+        // Binary SSID (AP MAC address)
         uint8_t bssid[16];
 
         for (int ii = 0; ii < ret.count; ++ii)
         {
             ap_data_t d;
-
+            
+            // get the BSSID
             wifi.BSSID(ii, bssid);
+            // convert to a string for easier handling
             d.bssid = mac2text(bssid);
 
+            // human readable name of the network
             d.ssid = wifi.SSID(ii);
+
+            // strength is DB (will be a negative number)
             d.strength = wifi.RSSI(ii);
+
+            // channel
             d.channel = wifi.channel(ii);
+
+            // encryption type - decode
             d.encryption = encryption2text(wifi.encryptionType(ii));
 
             ret.apData.push_back(d);
@@ -155,6 +206,12 @@ const scan_data_t pilznet::scan()
     return (ret);
 }
 
+/*******************************************************
+ * encryption2text()
+ *******************************************************
+ * Convenience method to return encryption type as a 
+ * human readable string
+ ******************************************************/
 const std::string pilznet::encryption2text(int thisType) 
 {
     switch (thisType) 
@@ -171,6 +228,12 @@ const std::string pilznet::encryption2text(int thisType)
     return ("WTF");
 }
 
+/*******************************************************
+ * status2text()
+ *******************************************************
+ * Convenience method to return module status as a 
+ * human readable string
+ ******************************************************/
 const std::string pilznet::status2text(int status) 
 {
     switch (status)
@@ -190,6 +253,12 @@ const std::string pilznet::status2text(int status)
     return ("unknown");
 }
 
+/*******************************************************
+ * mac2text()
+ *******************************************************
+ * Convenience method to return MAC address as a 
+ * human readable string
+ ******************************************************/
 const std::string pilznet::mac2text(uint8_t* mac)
 {
     std::string ret;
