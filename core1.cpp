@@ -35,6 +35,13 @@ bool wakeCore1 = false;
  ********************************************************/
 void core1Main(void)
 {
+    // Read the comment in ./nvm/nvm.cpp for info about lockout
+    multicore_lockout_victim_init();
+
+    // Let core 0 know it's OK to pause this core
+    ipcCore1Data.core1Ready = true;
+    updateSharedData(US_CORE1_READY, ipcCore1Data);
+
     // get the global singleton instances for the logger
     // and non-vol data storage handlers
     logger* log = logger::getInstance();
@@ -55,7 +62,6 @@ void core1Main(void)
     // go get the current TOD and date from the interwebz
     pnet.doNTP(data->getTZ());
 
-
     ipcCore1Data.wifiConnected = pnet.isConnected();
     ipcCore1Data.clockReady = pnet.isClockValid();
 
@@ -68,7 +74,7 @@ void core1Main(void)
     uint32_t sm = probe.init((PIO)pio0, 15);
 
     // do the first inter-core process update
-    updateSharedData(US_CORE1_READY | US_WIFI_CONNECTED | US_CLOCK_READY, ipcCore1Data);
+    updateSharedData(US_WIFI_CONNECTED | US_CLOCK_READY, ipcCore1Data);
 
     // main loop.  Nominally, each task will hit once every 5ms, but some of them
     // will block, so who knows?
@@ -161,40 +167,9 @@ void core1Main(void)
                 ++count;
             }  break;
             
-            // Lock this core in prep for writing to Flash memory
-            case 4:
-            {
-                if (ipcCore1Data.cmd == IS_LOCK_CORE_1)
-                {
-                    log->dbgWrite(stringFormat("%s::Got a lock request\n", __FUNCTION__));
-
-                    updates = US_NEW_CMD;
-                    ipcCore1Data.cmd = IS_NO_CMD;
-
-                    ipcCore1Data.ack = IS_LOCK_CORE_1;
-                    updates |= US_ACK_CMD;
-                    
-                    updateSharedData(updates, ipcCore1Data);
-                    wakeCore1 = false;
-                    log->dbgWrite("Prep work done, locking now\n");
-
-                    uint32_t savedStatus = save_and_disable_interrupts();
-
-                    while (!wakeCore1)
-                    {
-                        __dsb();
-                        __wfe();
-                    }
-
-                    restore_interrupts(savedStatus);
-
-                    log->dbgWrite("Unlocked!!\n");
-                }
-            }  break;
-
             // update the network handler - this is for the udp
             // server
-            case 5:
+            case 4:
             {
                 pnet.update();
                 updateSharedData(IS_NO_CMD, ipcCore1Data);
@@ -210,6 +185,6 @@ void core1Main(void)
         lastMs = ms;
         
         ++tick;
-        tick %= 6;
+        tick %= 5;
     }
 }

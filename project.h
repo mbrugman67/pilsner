@@ -10,6 +10,8 @@
 #ifndef PROJECT_H_
 #define PROJECT_H_
 
+//#define DEBUG
+
 // GPIO PINS
 #define PIN_MISO        0   //  INTERFACE TO WIFI MODULE
 #define PIN_CS          1   //  INTERFACE TO WIFI MODULE

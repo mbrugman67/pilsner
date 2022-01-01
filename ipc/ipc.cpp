@@ -2,9 +2,10 @@
  * ipc.cpp
  ********************************************************
  * Pass data and commands between the cores of the 
- * processor.  The silicon provides a pair of 32-bit
- * FIFOs for this, but I wanted to handle more complex
- * data and not be blocking.
+ * processor.  
+ * 
+ * I'm not using the Pico interprocessor FIFO for this - 
+ * read the comment in ../nvm/nvm.cpp for info as to why.
  * 
  * December 2021, M.Brugman
  * 

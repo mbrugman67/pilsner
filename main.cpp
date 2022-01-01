@@ -137,31 +137,27 @@ bool ledIRTest()
 
                 case KEY_5:
                 {
-                    dumpStruct(ipcCore0Data, std::string("Key5"));
+                    data->dump2String();
                 }  break;
 
                 case KEY_6:
                 {
-                    log->dbgWrite("About to test NVM\n");
+                    log->dbgWrite("Read NVM\n");
                     data->load();
                     data->dump2String();
                 }  break;
 
                 case KEY_7:
                 {
-                    if (!inProgress)
-                    {
-                        log->dbgWrite(stringFormat("%s::Asking core 1 to lock\n", __FUNCTION__));
-                        startTime = msTick;
-                        inProgress = true;
-                        ipcCore0Data.cmd = IS_LOCK_CORE_1;
-                        updateSharedData(US_NEW_CMD, ipcCore0Data);
-                    }
+                    log->dbgWrite("Write NVM\n");
+                    data->write();
                 }  break;
 
                 case KEY_8:
                 {
-                    data->dump2String();
+                    log->dbgWrite("Set NVM defaults\n");
+                    data->setDefaults();
+                    data->write();
                 }  break;
 
                 case KEY_UP:
@@ -218,15 +214,6 @@ bool ledIRTest()
                 ++cit;
             }
         }
-        else if (ipcCore0Data.ack == IS_LOCK_CORE_1)
-        {
-            log->dbgWrite(stringFormat("%s::Got ack on core 1 lock\n", __FUNCTION__));
-            data->write();
-            log->dbgWrite(stringFormat("%s::Done writing\n", __FUNCTION__));
-            wakeCore1 = true;
-            __sev();
-            log->dbgWrite(stringFormat("%s::Sent event\n\n", __FUNCTION__));
-        }
 
         ipcCore0Data.ack = IS_NO_CMD;
         updateSharedData(US_ACK_CMD, ipcCore0Data);
@@ -243,18 +230,25 @@ int main()
     // init the standard library
     stdio_init_all();
 
+// if debugging, add time to get the serial terminal console 
+// on the host running
+#ifdef DEBUG
     sleep_ms(6000);
-
-    // get the global singleton persisted data handler.  This has to be 
-    // done before we spin up core 1 to prevent data races!
-    data = nvm::getInstance();
-    data->init();
-    sleep_ms(50);
+#endif
 
     // get the single instane of the global logger
     logger* log = logger::getInstance();
 
-    log->dbgWrite("\n****************starting****************\n");
+    // log separator
+    log->dbgWrite("*********\n");
+    log->dbgWrite("* start *\n");
+    log->dbgWrite("*********\n");
+
+    // get the global singleton persisted data handler.  
+    data = nvm::getInstance();
+    data->init();
+    sleep_ms(50);
+
 
     // no real reason for this.  Reboot can be commanded by a 
     // UDP network connection, just drop a line in the log if 
@@ -277,6 +271,7 @@ int main()
     if (initIPC())
     {
         multicore_launch_core1(core1Main);
+        data->setCore1Ready(true);
     }
 
     // instantiate the refregeration pump object
@@ -321,6 +316,13 @@ int main()
                 // drop a line in the log to indicate state change
                 if (lastState != chill.getReeferState())
                 {
+                    // accumulate runtime in NVM
+                    if (lastState == RS_CHILLING)
+                    {
+                        data->accumulateRuntime(chill.getPumpRuntimeSeconds());
+                        data->write();
+                    }
+
                     log->dbgWrite(stringFormat("Reefer state from %s to %s\n",
                         chill.getStateName(lastState).c_str(),
                         chill.getStateName(chill.getReeferState()).c_str()));
@@ -330,7 +332,7 @@ int main()
 
             }  break;
             
-            // Task 4 - inter-core comms updates
+            // Task 3 - inter-core comms updates
             case 3:
             {
                 updateSharedData(US_NONE, ipcCore0Data);

@@ -10,9 +10,10 @@
 #include "reefer.h"
 #include "project.h"
 
-#define INIT_TIME_DELAY         (uint32_t)(30 * 1000)   // 30 seconds for startup delay
-#define CHILL_START_DELAY       (uint32_t)(60 * 1000)   // 60 second minimum pump run time
-#define CHILL_END_DELAY         (uint32_t)(60 * 1000)   // 60 second minimum pump off time
+#define INIT_TIME_DELAY         (uint32_t)(30 * 1000)       // 30 seconds for startup delay
+#define CHILL_START_DELAY       (uint32_t)(60 * 1000)       // 60 second minimum pump run time
+#define CHILL_END_DELAY         (uint32_t)(60 * 1000)       // 60 second minimum pump off time
+#define LOG_WRITE_DELAY         (uint32_t)(15 * 60 * 1000)  // 15 minutes between log writes
 
 /*********************************************
  * init()
@@ -27,6 +28,7 @@ void reefer::init()
 
     // initial timestamp reference is 30 seconds from now
     refTimestamp = make_timeout_time_ms(INIT_TIME_DELAY);
+    logWriteTime = make_timeout_time_ms(LOG_WRITE_DELAY);
 
     // set up the pin that goes to the reefer pump and
     // make sure we start with the pump off
@@ -35,6 +37,7 @@ void reefer::init()
     gpio_put(PIN_PUMP, false);
 
     lastTemp = 0.0;
+    pumpRuntimeSeconds = 0;
     reeferState = RS_INIT;
 }
 
@@ -47,6 +50,7 @@ void reefer::init()
  ********************************************/ 
 void reefer::update(float currentTemp)
 {
+    static uint32_t startTime = 0;
     switch (reeferState)
     {
         // Initial power up state - wait 30 seconds 
@@ -73,6 +77,9 @@ void reefer::update(float currentTemp)
 
                 // pump needs to run a minimum amount of time
                 refTimestamp = make_timeout_time_ms(CHILL_START_DELAY);
+
+                // start the runtime timer
+                startTime =  to_ms_since_boot(get_absolute_time());
 
                 // oo to the next state
                 reeferState = RS_CHILL_START;
@@ -101,6 +108,10 @@ void reefer::update(float currentTemp)
                 // pump needs to be off a minimum amount of time
                 refTimestamp = make_timeout_time_ms(CHILL_END_DELAY);
 
+                // get accumulated runtime
+                pumpRuntimeSeconds = (to_ms_since_boot(get_absolute_time()) - startTime) / 1000;
+                log->dbgWrite(stringFormat("Accumulated pump runtime now %d seconds\n", pumpRuntimeSeconds));
+
                 // oo to the next state
                 reeferState = RS_POST_CHILL;
             }
@@ -119,13 +130,11 @@ void reefer::update(float currentTemp)
     if (gpio_get(PIN_PUMP))     pumpRunning = true;
     else                        pumpRunning = false;
 
-    static uint32_t lastTempCount = 0;
-    static float lastTemp = 0.0;
-
-    // drop a line in the log when the temperature changes, include
-    // the pump state
-    if (lastTemp != currentTemp)
+    // drop a line in the log every 15 minutes
+    if (get_absolute_time() > logWriteTime)
     {
+        logWriteTime = make_timeout_time_ms(LOG_WRITE_DELAY);
+
         log->infoWrite(stringFormat("%02.1f,%s\n", 
                 currentTemp, 
                 pumpRunning ? "running":"stopped"));

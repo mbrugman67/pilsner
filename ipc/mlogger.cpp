@@ -10,6 +10,7 @@
 #include <cstring>
 
 #include "mlogger.h"
+#include "../project.h"
 #include "../utils/stringFormat.h"
 #include "pico/multicore.h"
 #include "../sys/walltime.h"
@@ -140,7 +141,10 @@ size_t logger::write(const std::string& s)
 {
     size_t count = 0;
 
+// If debugging, echo all writes out the USB port
+#ifdef DEBUG
     printf(s.c_str());
+#endif 
 
     // strings are just STL containers, so
     // use the standard tools

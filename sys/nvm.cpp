@@ -3,6 +3,53 @@
  ********************************************************
  * Handle storage of non-volatile data.  it is stored
  * in Flash memory, so don't overdo the writes!!
+ ******************************************************** 
+ *
+ * The proper way to do this would be to add a serial 
+ * EEPROM chip or something to the project and use that
+ * to store config and non-vol stuff.  I don't have one
+ * in my junk pile right now...
+ * 
+ * So, we'll use the Flash chip on the board for nvm.  
+ * There's plenty of room - the chip is 2MB and the 
+ * project is only about 140K.
+ * 
+ * The problem?  Both cores are executing code directly
+ * from that chip (XIP - execute in place).  There's a 
+ * resource contention for flash.  The easiest and most
+ * ham-handed way to deal with it is to only allow one
+ * core to do writes to flash.  The other core will be 
+ * suspended during the write.  The SDK has API calls
+ * for that!
+ * 
+ * Start with executing this on core 1:
+ *          multicore_lockout_victim_init()
+ * That will build in some extra code for core 1 which
+ * is basically a busy loop/spinlock that executes
+ * from RAM when core 0 requests it.
+ * 
+ * Before executing the Flash write, call this on core 0:
+ *          multicore_lockout_start_blocking()
+ * This begins the process of core 1 going into it's busy
+ * loop and will block until core 1 is ready
+ * 
+ * Then do the stuff
+ * 
+ * Finally, on core 0, call:
+ *          multicore_lockout_end_blocking()
+ * and it will block until core 1 starts running again.
+ * 
+ * I admit I messed around with my own spinlock and __wfe()
+ * and __sev() before realizing they had to run from RAM and
+ * not flash.  Then I found these functions in the API.  Ugh.
+ * 
+ * This violates my "all blocking functions on core 1" 
+ * requirement.  Testing shows that the erase/write cycle
+ * for one flash block (256 bytes) takes between 25 and 29
+ * milliseconds.  Given that it won't be done very often
+ * I can live with that.
+ * 
+ ******************************************************** 
  * December 2021, M.Brugman
  * 
  *******************************************************/
@@ -11,8 +58,10 @@
 #include "pico/stdlib.h"
 
 #include "nvm.h"
+#include "../project.h"
 #include "../creds.h"
 #include "../ipc/mlogger.h"
+#include "../ipc/ipc.h"
 #include "../utils/stringFormat.h"
 
 #define SIG (uint32_t)(0xabad1dea)              // signature to know we're valid
@@ -73,7 +122,36 @@ void nvm::write()
     // total number of bytes to write
     size_t bytesRemaining = sizeof(nvmData);
 
-    mutex_enter_blocking(&mtx);
+    // get the time now
+    absolute_time_t start = get_absolute_time();
+
+    // do the work in a critical section so we don't 
+    // get clobbered by an interrupt or other surprises
+    critical_section_enter_blocking(&crit);
+
+#ifdef DEBUG
+    log->dbgWrite("NVM::entered critical section\n");
+#endif
+
+    // ask core 1 to pause; it will go into a spinlock 
+    // running from RAM.  Make sure to check if core 1 
+    // has been init'd first, otherwise we could hang
+    // here forever
+    if (core1Ready)
+    {
+        multicore_lockout_start_timeout_us((uint64_t)25);
+    }
+
+#ifdef DEBUG
+    log->dbgWrite("NVM::core 0 locked\n");
+#endif
+
+    // erase the full sector before writing
+    flash_range_erase(START_OFFSET, FLASH_SECTOR_SIZE);
+
+#ifdef DEBUG
+    log->dbgWrite("NVM::erased sector\n");
+#endif
 
     while (bytesRemaining)
     {
@@ -99,8 +177,27 @@ void nvm::write()
         // decrement by the number of bytes 
         bytesRemaining -= bytesToWrite;
     }
-    mutex_exit(&mtx);
-    log->dbgWrite("Done writing to Flash\n");
+
+    // tell core 1 it can start running from Flash again
+    // Make sure to check if core 1 
+    // has been init'd first, otherwise we could hang
+    // here forever
+    if (core1Ready)
+    {
+        multicore_lockout_end_timeout_us((uint64_t)25);
+    }
+
+#ifdef DEBUG
+    log->dbgWrite("NVM::unlocked core 1\n");
+#endif
+
+    critical_section_exit(&crit);
+
+#ifdef DEBUG
+    log->dbgWrite("NVM::left critical section\n");
+#endif
+
+    log->dbgWrite(stringFormat("Done writing bytes to Flash in %ld us\n", absolute_time_diff_us(start, get_absolute_time())));
 }
 
 /********************************************************
@@ -114,10 +211,8 @@ void nvm::load()
     // uses the address of the flash in the memory map (hence the XIP_BASE offset)
     const uint8_t* loc = (const uint8_t*)(READ_LOCATION);
 
-    // get it
-    //mutex_enter_blocking(&mtx);
+    // just a memcpy to get from Flash to RAM
     std::memcpy((void*)&nvmData, loc, sizeof(nvmData));
-    //mutex_exit(&mtx);
 
     // is it good?
     if (nvmData.signature != SIG || nvmData.endSig != ENDSIG)
@@ -136,6 +231,7 @@ void nvm::load()
 void nvm::setDefaults()
 {
     nvmData.signature = SIG;
+    nvmData.runtime = 0;
     nvmData.setpoint = 65.0;
     nvmData.hysteresis = 1.0;
     strncpy(nvmData.ssid, WIFI_ACCESS_POINT_NAME, 63);
@@ -155,13 +251,15 @@ void nvm::setDefaults()
 void nvm::dump2String()
 {
     log->dbgWrite(stringFormat("\n  Signature - 0x%08x\n"
-                                 "   Setpoint - %02.1f\n"
-                                 " Hysteresis - %02.1f\n"
+                                 "    Runtime - %d seconds\n"
+                                 "   Setpoint - %02.1f deg F\n"
+                                 " Hysteresis - %02.1f deg F\n"
                                  "       SSID - %s\n"
                                  "         PW - %s\n"
                                  "   Timezone - %s\n"
                                  "    End Sig - 0x%08x\n",
             nvmData.signature,
+            nvmData.runtime,
             nvmData.setpoint,
             nvmData.hysteresis,
             nvmData.ssid,
@@ -179,7 +277,8 @@ void nvm::dump2String()
 void nvm::init()
 {
     log = logger::getInstance();
-    mutex_init(&mtx);
+    critical_section_init(&crit);
+    core1Ready = false;
     this->load();
 }
 

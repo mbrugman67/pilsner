@@ -33,15 +33,19 @@ public:
     void init();
 
     void update(float currentTemp);
+
+    uint32_t getPumpRuntimeSeconds()                    { return(pumpRuntimeSeconds); }
     bool isPumpRunning()                                { return(pumpRunning); }
     reefer_state_t getReeferState()                     { return(reeferState); }
     const std::string getStateName(reefer_state_t state);
 
 private:
     bool pumpRunning;
+    uint32_t pumpRuntimeSeconds;
     float lastTemp;
     reefer_state_t reeferState;
     absolute_time_t refTimestamp;
+    absolute_time_t logWriteTime;
 
     logger* log;
     nvm* data;

@@ -25,38 +25,46 @@ public:
     void init();
     void setDefaults();
 
+    void setCore1Ready(bool ready)              { core1Ready = ready; }
+
     void setTZ(const std::string& t);
     void setSSID(const std::string& s);         
     void setPwd(const std::string& p);
     void setSetpoint(float sp)                  { nvmData.setpoint = sp; }
     void setHysteresis (float h)                { nvmData.hysteresis = h; }
 
+    void accumulateRuntime(uint32_t rt)         { nvmData.runtime += rt; }
+
     void dump2String();
 
+    uint32_t getTotalRuntime()                  { return (nvmData.runtime); }
     const std::string getTZ()                   { return (nvmData.tz); }
     const std::string getSSID() const           { return (std::string(nvmData.ssid)); }
     const std::string getPwd() const            { return (std::string(nvmData.pw)); }
     float getSetpoint() const                   { return (nvmData.setpoint); }
     float getHysteresis() const                 { return (nvmData.hysteresis); }
 private:
+    bool core1Ready;
+
     struct nvm_t
     {
         uint32_t signature;     // 0
-        float setpoint;         // 4
-        float hysteresis;       // 8
+        uint32_t runtime;       // 4
+        float setpoint;         // 8
+        float hysteresis;       // 12
         
-        char ssid[64];          // 12
-        char pw[64];            // 76
-        char tz[32];            // 140
+        char ssid[64];          // 16
+        char pw[64];            // 80
+        char tz[32];            // 144
 
-        uint32_t endSig;        // 172
-    } nvmData;                  // 176 total bytes
+        uint32_t endSig;        // 176
+    } nvmData;                  // 180 total bytes
     
     static nvm* instance;
     nvm() {}
 
     logger* log;
-    mutex_t mtx;
+    critical_section_t crit;
 };
 
 #endif // NVM_H_
