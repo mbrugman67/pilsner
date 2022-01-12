@@ -29,6 +29,7 @@
 #include "project.h"
 #include "core1.h"
 #include "reefer.h"
+#include "hub75.h"
 #include "./sys/ir.h"
 #include "./ipc/ipc.h"
 #include "./ipc/mlogger.h"
@@ -160,6 +161,11 @@ bool ledIRTest()
                     data->write();
                 }  break;
 
+                case KEY_9:
+                {
+                    log->dbgWrite(stringFormat("Current temp %0.2f\n", ipcCore0Data.temperatue));
+                }  break;
+
                 case KEY_UP:
                 {
                     data->setSetpoint(99.0);
@@ -249,7 +255,6 @@ int main()
     data->init();
     sleep_ms(50);
 
-
     // no real reason for this.  Reboot can be commanded by a 
     // UDP network connection, just drop a line in the log if 
     // that happened.  Maybe we'll do different things based on
@@ -278,6 +283,10 @@ int main()
     reefer chill;
     chill.init();
     bool pumpRunning = false;
+
+    // instantiate the display panel
+    hub75 display;
+    display.init();
 
     // start getting the timing stuffs
     msTick = to_ms_since_boot(get_absolute_time());
@@ -338,6 +347,8 @@ int main()
                 updateSharedData(US_NONE, ipcCore0Data);
             }  break;
         }
+
+        display.update();
 
         // tight part of service loop
         while(msTick == lastMs)

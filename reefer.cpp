@@ -57,7 +57,7 @@ void reefer::update(float currentTemp)
         // after powerup before entering the state machine
         case RS_INIT:
         {
-            if (get_absolute_time() > refTimestamp)
+            if (time_reached(refTimestamp))
             {
                 log->dbgWrite("reefer leaving init state\n");
                 reeferState = RS_IDLE;
@@ -89,7 +89,7 @@ void reefer::update(float currentTemp)
         // wait for the minimum chill time to expire
         case RS_CHILL_START:
         {
-            if (get_absolute_time() > refTimestamp)
+            if (time_reached(refTimestamp))
             {
                 reeferState = RS_CHILLING;
             }
@@ -120,7 +120,7 @@ void reefer::update(float currentTemp)
         // off time has expired, go back to idle
         case RS_POST_CHILL:
         {
-            if (get_absolute_time() > refTimestamp)
+            if (time_reached(refTimestamp))
             {
                 reeferState = RS_IDLE;
             }
@@ -131,7 +131,7 @@ void reefer::update(float currentTemp)
     else                        pumpRunning = false;
 
     // drop a line in the log every 15 minutes
-    if (get_absolute_time() > logWriteTime)
+    if (time_reached(logWriteTime))
     {
         logWriteTime = make_timeout_time_ms(LOG_WRITE_DELAY);
 
