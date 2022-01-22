@@ -254,6 +254,7 @@ int main()
     data = nvm::getInstance();
     data->init();
     sleep_ms(50);
+    data->dump2String();
 
     // no real reason for this.  Reboot can be commanded by a 
     // UDP network connection, just drop a line in the log if 
@@ -275,18 +276,23 @@ int main()
     // SDK.
     if (initIPC())
     {
+        log->dbgWrite("IPC init'd\n");
         multicore_launch_core1(core1Main);
+        log->dbgWrite("Core1 launched\n");
         data->setCore1Ready(true);
     }
+    log->dbgWrite("Multicore init'd\n");
 
     // instantiate the refregeration pump object
     reefer chill;
     chill.init();
     bool pumpRunning = false;
+    log->dbgWrite("Chill init'd\n");
 
     // instantiate the display panel
     hub75 display;
     display.init();
+    log->dbgWrite("Display init'd\n");
 
     // start getting the timing stuffs
     msTick = to_ms_since_boot(get_absolute_time());

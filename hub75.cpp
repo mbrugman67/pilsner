@@ -61,19 +61,24 @@ void hub75::init()
     this->clear();
     currentCol = 0;
     currentRow = 0;
+
+    pixel pxl;
+    pxl.makePixel(0,0,0);
+    std::memset(frameBuffer, pxl.pixelToBuf(), FRAME_BUFFER_SIZE / sizeof(pixel_buff_t));
 }
 
 void hub75::clear()
 {
     std::memset(frameBuffer, 0, FRAME_BUFFER_SIZE);
     pixel pxl;
-    pxl.makePixel(7,0,0);
+    //pxl.makePixel(PXL_WHT);
+    pxl.makePixel(PXL_RED);
     this->fillColor(pxl);
 }
 
 void hub75::fillColor(pixel& pxl)
 {
-    std::memset(frameBuffer, pxl.pixelToBuf(), FRAME_BUFFER_SIZE / sizeof(pixel_buff_t));
+    std::memset(shadowBuffer, pxl.pixelToBuf(), FRAME_BUFFER_SIZE / sizeof(pixel_buff_t));
 }
 
 #define DLAY   100
@@ -140,4 +145,11 @@ void hub75::update()
     // increment row for next update
     ++currentRow;
     currentRow %= (LED_ROWS / 2);
+
+    // if we wrapped around to the top, copy the shadow buffer to 
+    // framebuffer for no flickery crap
+    if (!currentRow)
+    {
+        std::memcpy((void*)frameBuffer, (void*)shadowBuffer, FRAME_BUFFER_SIZE);
+    }
 }

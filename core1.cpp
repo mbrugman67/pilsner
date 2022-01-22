@@ -38,14 +38,16 @@ void core1Main(void)
     // Read the comment in ./nvm/nvm.cpp for info about lockout
     multicore_lockout_victim_init();
 
-    // Let core 0 know it's OK to pause this core
-    ipcCore1Data.core1Ready = true;
-    updateSharedData(US_CORE1_READY, ipcCore1Data);
-
     // get the global singleton instances for the logger
     // and non-vol data storage handlers
     logger* log = logger::getInstance();
     nvm* data = nvm::getInstance();
+
+    log->dbgWrite("Into core 1's shit now\n");
+    
+    // Let core 0 know it's OK to pause this core
+    ipcCore1Data.core1Ready = true;
+    updateSharedData(US_CORE1_READY, ipcCore1Data);
 
     // Weeeee're here!
     log->dbgWrite(stringFormat("%s::Starting\n", __FUNCTION__));

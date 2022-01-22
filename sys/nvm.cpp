@@ -104,6 +104,7 @@ nvm* nvm::getInstance()
  *******************************************************/
 void nvm::write()
 {
+    log->dbgWrite(stringFormat("nvm::%s() - entering\n", __FUNCTION__));
     if (get_core_num() == 1)
     {
         log->errWrite("Cannot call nvm::write() from core 1!!\n");
@@ -198,6 +199,7 @@ void nvm::write()
 #endif
 
     log->dbgWrite(stringFormat("Done writing bytes to Flash in %ld us\n", absolute_time_diff_us(start, get_absolute_time())));
+    log->dbgWrite(stringFormat("nvm::%s() - leaving\n", __FUNCTION__));
 }
 
 /********************************************************
