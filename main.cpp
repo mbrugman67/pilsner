@@ -91,7 +91,7 @@ bool ledIRTest()
             {
                 case KEY_0:
                 {
-                    log->dbgWrite(stringFormat("%s::seconds since boot: %d\n", __FUNCTION__, to_ms_since_boot(get_absolute_time() / 1000)));
+                    log->dbgWrite(stringFormat("%s::seconds since boot: %d\n", __FUNCTION__, to_ms_since_boot(get_absolute_time()) / 1000));
                 }  break;
 
                 case KEY_1:
